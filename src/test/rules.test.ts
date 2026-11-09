@@ -6,6 +6,7 @@ import {
   noteToMarkdown,
   safeHeadline,
 } from "@/lib/markdown-utils";
+import { askTerms } from "@/lib/ask-utils";
 import {
   agendaToMarkdown,
   buildAgenda,
@@ -15,6 +16,15 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("perguntar", () => {
+  it("tira palavras comuns e mantém acentos e termos úteis", () => {
+    expect(askTerms("O que eu aprendi sobre negociação com o cliente na reunião?")).toEqual(["aprendi", "negociação", "cliente", "reunião"]);
+  });
+  it("ignora números, 'or' e repetições, com limite", () => {
+    expect(askTerms("2026 or vendas vendas metas", 2)).toEqual(["vendas", "metas"]);
+  });
+});
 
 describe("agenda", () => {
   it("converte data e hora de Brasília para timestamptz", () => {

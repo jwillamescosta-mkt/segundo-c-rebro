@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   Brain,
+  BrainCircuit,
   CalendarDays,
   ChevronRight,
   Download,
@@ -143,6 +144,7 @@ export function Sidebar() {
   const nav = [
     { to: "/inicio" as const, label: "Início", icon: Home },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
+    { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },
     { to: "/agenda" as const, label: "Agenda", icon: CalendarDays },
     { to: "/tarefas" as const, label: "Tarefas", icon: ListTodo },
     { to: "/compartilhadas" as const, label: "Compartilhadas", icon: Share2 },

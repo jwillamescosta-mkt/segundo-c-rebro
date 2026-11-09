@@ -17,6 +17,7 @@ import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilha
 import { Route as AppGrafoRouteImport } from './routes/_app/grafo'
 import { Route as AppInicioRouteImport } from './routes/_app/inicio'
 import { Route as AppNotasRouteImport } from './routes/_app/notas'
+import { Route as AppPerguntarRouteImport } from './routes/_app/perguntar'
 import { Route as AppTarefasRouteImport } from './routes/_app/tarefas'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as AppNotaIdRouteImport } from './routes/_app/nota.$id'
@@ -60,6 +61,11 @@ const AppNotasRoute = AppNotasRouteImport.update({
   path: '/notas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPerguntarRoute = AppPerguntarRouteImport.update({
+  id: '/perguntar',
+  path: '/perguntar',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTarefasRoute = AppTarefasRouteImport.update({
   id: '/tarefas',
   path: '/tarefas',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/grafo': typeof AppGrafoRoute
   '/inicio': typeof AppInicioRoute
   '/notas': typeof AppNotasRoute
+  '/perguntar': typeof AppPerguntarRoute
   '/tarefas': typeof AppTarefasRoute
   '/s/$token': typeof STokenRoute
   '/nota/$id': typeof AppNotaIdRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/grafo': typeof AppGrafoRoute
   '/inicio': typeof AppInicioRoute
   '/notas': typeof AppNotasRoute
+  '/perguntar': typeof AppPerguntarRoute
   '/tarefas': typeof AppTarefasRoute
   '/s/$token': typeof STokenRoute
   '/nota/$id': typeof AppNotaIdRoute
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/_app/grafo': typeof AppGrafoRoute
   '/_app/inicio': typeof AppInicioRoute
   '/_app/notas': typeof AppNotasRoute
+  '/_app/perguntar': typeof AppPerguntarRoute
   '/_app/tarefas': typeof AppTarefasRoute
   '/s/$token': typeof STokenRoute
   '/_app/nota/$id': typeof AppNotaIdRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/grafo'
     | '/inicio'
     | '/notas'
+    | '/perguntar'
     | '/tarefas'
     | '/s/$token'
     | '/nota/$id'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/grafo'
     | '/inicio'
     | '/notas'
+    | '/perguntar'
     | '/tarefas'
     | '/s/$token'
     | '/nota/$id'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/_app/grafo'
     | '/_app/inicio'
     | '/_app/notas'
+    | '/_app/perguntar'
     | '/_app/tarefas'
     | '/s/$token'
     | '/_app/nota/$id'
@@ -219,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNotasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/perguntar': {
+      id: '/_app/perguntar'
+      path: '/perguntar'
+      fullPath: '/perguntar'
+      preLoaderRoute: typeof AppPerguntarRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/tarefas': {
       id: '/_app/tarefas'
       path: '/tarefas'
@@ -249,6 +268,7 @@ interface AppRouteChildren {
   AppGrafoRoute: typeof AppGrafoRoute
   AppInicioRoute: typeof AppInicioRoute
   AppNotasRoute: typeof AppNotasRoute
+  AppPerguntarRoute: typeof AppPerguntarRoute
   AppTarefasRoute: typeof AppTarefasRoute
   AppNotaIdRoute: typeof AppNotaIdRoute
 }
@@ -259,6 +279,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGrafoRoute: AppGrafoRoute,
   AppInicioRoute: AppInicioRoute,
   AppNotasRoute: AppNotasRoute,
+  AppPerguntarRoute: AppPerguntarRoute,
   AppTarefasRoute: AppTarefasRoute,
   AppNotaIdRoute: AppNotaIdRoute,
 }

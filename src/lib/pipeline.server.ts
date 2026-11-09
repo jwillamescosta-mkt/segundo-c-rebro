@@ -16,7 +16,7 @@ type Part =
   | { type: "input_audio"; input_audio: { data: string; format: string } }
   | { type: "file"; file: { file_data: string; filename: string } };
 
-async function chatText(system: string, parts: Part[]): Promise<string> {
+export async function chatText(system: string, parts: Part[]): Promise<string> {
   const res = await generateChatCompletion({
     model: MODEL,
     messages: [
@@ -72,7 +72,7 @@ function decodeEntities(s: string) {
     .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
 }
 
-function todayContext() {
+export function todayContext() {
   const now = new Date();
   const iso = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(now);
   const human = new Intl.DateTimeFormat("pt-BR", {

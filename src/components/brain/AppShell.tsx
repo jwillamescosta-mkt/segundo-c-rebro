@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { CalendarDays, Mic, Network, NotebookText, ListTodo, Plus, X, Loader2 } from "lucide-react";
+import { BrainCircuit, CalendarDays, Mic, Network, NotebookText, Plus, X, Loader2 } from "lucide-react";
 import { MotionConfig, motion } from "motion/react";
 import { EASE } from "./motion";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -73,8 +73,8 @@ function MobileNav() {
     { to: "/inicio" as const, label: "Capturar", icon: Mic },
     { to: "/notas" as const, label: "Notas", icon: NotebookText },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
+    { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },
     { to: "/agenda" as const, label: "Agenda", icon: CalendarDays },
-    { to: "/tarefas" as const, label: "Tarefas", icon: ListTodo },
   ];
   return (
     <nav className="grid shrink-0 grid-cols-5 border-t bg-panel pb-[env(safe-area-inset-bottom)]">

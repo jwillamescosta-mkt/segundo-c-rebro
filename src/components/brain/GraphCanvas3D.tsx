@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph3D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-3d";
-import { AdditiveBlending, Color, FogExp2, Sprite, SpriteMaterial, Vector3 } from "three";
+import { AdditiveBlending, Color, FogExp2, type Intersection, type PerspectiveCamera, type Raycaster, Sprite, SpriteMaterial, Vector3 } from "three";
 import { useReducedMotion } from "motion/react";
 import type { GLink, GNode } from "./GraphCanvas";
 import { useGraphColors } from "./graph-colors";
-import { LINK_MATERIALS, SPACE, createSpace, luminous, neuronTexture } from "./space-scene";
+import { LINK_MATERIALS, SPACE, createSpace, hitRadius, insideHit, luminous, neuronTexture } from "./space-scene";
 
 type N = NodeObject<GNode>;
 type L = LinkObject<GNode, GLink>;
@@ -39,7 +39,13 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
   const wrap = useRef<HTMLDivElement>(null);
   const fg = useRef<ForceGraphMethods<N, L> | undefined>(undefined);
   const [size, setSize] = useState({ w: 300, h: 300 });
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const [selected, setSelected] = useState<string | null>(null);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  // Caminho percorrido no passeio (para o botão Voltar).
+  const [trail, setTrail] = useState<string[]>([]);
   const [hover, setHover] = useState<string | null>(null);
   const colors = useGraphColors(true);
   const reduced = useReducedMotion();
@@ -83,7 +89,7 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
     const pause = () => {
       controls.autoRotate = false;
       clearTimeout(idle);
-      if (!reduced) idle = setTimeout(() => (controls.autoRotate = true), IDLE_MS);
+      if (!reduced) idle = setTimeout(() => (controls.autoRotate = !selectedRef.current), IDLE_MS);
     };
     controls.autoRotate = !reduced;
     controls.autoRotateSpeed = 0.45;
@@ -127,6 +133,18 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
       s.scale.set(base, base, 1);
       s.userData["base"] = base;
       s.userData["tint"] = tint;
+      // Alvo de clique: só o miolo (o halo é só luz). Mínimo de 24 px no mouse (WCAG 2.2) e 36 px no toque, para notas distantes.
+      const spriteRaycast = s.raycast.bind(s);
+      s.raycast = (rc: Raycaster, out: Intersection[]) => {
+        const hits: Intersection[] = [];
+        spriteRaycast(rc, hits);
+        const hit = hits[0];
+        if (!hit?.uv) return;
+        const cam = rc.camera as PerspectiveCamera;
+        const spritePx = (s.scale.x / (2 * hit.distance * Math.tan((cam.fov * Math.PI) / 360))) * sizeRef.current.h;
+        const touch = window.matchMedia("(hover: none)").matches;
+        if (insideHit(hit.uv, hitRadius(touch ? 0.17 : 0.11, touch ? 36 : 24, spritePx))) out.push(hit);
+      };
       return s;
     },
     [colors],
@@ -212,15 +230,59 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
     space.current?.dust.scale.setScalar(dist * 0.7);
   };
 
+  /** Voa até a nota mantendo a direção do olhar: de vizinho em vizinho parece andar pela rede, não pular. */
   const flyTo = (n: N) => {
     const g = fg.current;
     if (!g || n.x === undefined) return;
-    const d = 120;
-    const ratio = 1 + d / Math.max(1, Math.hypot(n.x, n.y ?? 0, n.z ?? 0));
-    g.cameraPosition({ x: n.x * ratio, y: (n.y ?? 0) * ratio, z: (n.z ?? 0) * ratio }, { x: n.x, y: n.y ?? 0, z: n.z ?? 0 }, reduced ? 0 : 1200);
+    const target = new Vector3(n.x, n.y ?? 0, n.z ?? 0);
+    const dir = g.camera().position.clone().sub(target);
+    if (dir.lengthSq() < 1e-6) dir.set(0, 0, 1);
+    const pos = target.clone().add(dir.normalize().multiplyScalar(Math.max(90, distance * 2.4)));
+    g.cameraPosition({ x: pos.x, y: pos.y, z: pos.z }, { x: target.x, y: target.y, z: target.z }, reduced ? 0 : 1100);
   };
 
-  const selectedTitle = selected ? nodes.find((n) => n.id === selected)?.title : null;
+  const nodeById = useMemo(() => new Map((data.nodes as N[]).map((n) => [n.id as string, n])), [data]);
+  /** Foca uma nota e leva a câmera até ela. `from` entra no caminho para o Voltar. */
+  const go = (id: string, from: string | null) => {
+    const n = nodeById.get(id);
+    if (!n) return;
+    if (from && from !== id) setTrail((t) => [...t.slice(-30), from]);
+    setSelected(id);
+    const controls = fg.current?.controls() as { autoRotate?: boolean } | undefined;
+    if (controls) controls.autoRotate = false; // parado durante o passeio
+    flyTo(n);
+  };
+  const back = () => {
+    const prev = trail[trail.length - 1];
+    if (!prev) return;
+    setTrail((t) => t.slice(0, -1));
+    go(prev, null);
+  };
+  const overview = () => {
+    setSelected(null);
+    setTrail([]);
+    frame(reduced ? 0 : 1100);
+  };
+
+  // Teclado (computador): Esc volta à visão geral; Backspace volta pelo caminho.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement | null)?.closest("input,textarea,select")) return;
+      if (e.key === "Escape" && selectedRef.current) overview();
+      else if (e.key === "Backspace" && selectedRef.current) {
+        e.preventDefault();
+        back();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  const selectedNode = selected ? nodeById.get(selected) : undefined;
+  // Notas ligadas à que está em foco, das mais conectadas para as menos (as "estradas" do passeio).
+  const neighbors = selected
+    ? [...(adj.get(selected) ?? [])].map((id) => nodeById.get(id)).filter((n): n is N => !!n).sort((a, b) => b.degree - a.degree)
+    : [];
 
   return (
     <div ref={wrap} className="relative h-full w-full" style={{ background: SPACE.background }}>
@@ -271,18 +333,54 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
             onNodeClick?.(id);
             return;
           }
-          setSelected(id);
-          flyTo(n);
+          go(id, selected);
         }}
-        onBackgroundClick={() => setSelected(null)}
+        // Clicar no vazio sai do foco, mas mantém a câmera onde está (para continuar explorando dali).
+        onBackgroundClick={() => {
+          setSelected(null);
+          setTrail([]);
+        }}
       />
-      {selectedTitle && (
-        <button
-          onClick={() => selected && onNodeClick?.(selected)}
-          className="absolute bottom-4 left-1/2 max-w-[90%] -translate-x-1/2 truncate rounded-full border bg-panel/90 px-4 py-2 text-sm shadow-lg backdrop-blur hover:border-primary"
-        >
-          {selectedTitle} · <span className="text-primary">abrir</span>
-        </button>
+      {selectedNode && (
+        <div className="absolute inset-x-3 bottom-3 mx-auto max-w-lg rounded-2xl border border-white/10 bg-[#070d2a]/80 p-3 text-sm text-white shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <span className="size-2.5 shrink-0 rounded-full" style={{ background: SPACE.gold, boxShadow: `0 0 10px ${SPACE.gold}` }} />
+            <span className="min-w-0 flex-1 truncate font-medium">{selectedNode.title}</span>
+            <button onClick={() => onNodeClick?.(selectedNode.id as string)} className="shrink-0 rounded-full bg-[#ffc46b] px-3 py-1 text-xs font-semibold text-[#1a1203] hover:brightness-110">
+              Abrir
+            </button>
+          </div>
+          {neighbors.length > 0 ? (
+            <>
+              <p className="mt-2 text-[11px] uppercase tracking-wide text-white/50">Ligada a {neighbors.length} · toque para ir até lá</p>
+              <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+                {neighbors.slice(0, 20).map((n) => (
+                  <button
+                    key={n.id as string}
+                    onClick={() => go(n.id as string, selected)}
+                    onMouseEnter={() => setHover(n.id as string)}
+                    onMouseLeave={() => setHover(null)}
+                    className="flex max-w-[11rem] shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs hover:border-[#4f9dff] hover:bg-[#4f9dff]/15"
+                  >
+                    <span className="size-1.5 shrink-0 rounded-full" style={{ background: colors[n.type] ?? colors.label }} />
+                    <span className="truncate">{n.title}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-xs text-white/50">Esta nota ainda não tem ligações.</p>
+          )}
+          <div className="mt-2 flex items-center gap-1 text-xs">
+            <button onClick={back} disabled={!trail.length} className="rounded-full px-2.5 py-1 text-white/80 hover:bg-white/10 disabled:opacity-30">
+              ← Voltar
+            </button>
+            <button onClick={overview} className="rounded-full px-2.5 py-1 text-white/80 hover:bg-white/10">
+              Visão geral
+            </button>
+            <span className="ml-auto hidden text-white/40 sm:inline">arraste para girar em volta · Esc sai</span>
+          </div>
+        </div>
       )}
     </div>
   );

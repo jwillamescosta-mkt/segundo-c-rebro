@@ -8,7 +8,7 @@ import {
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
 import { Color } from "three";
-import { luminous, spherePoints } from "@/components/brain/space-scene";
+import { hitRadius, insideHit, luminous, spherePoints } from "@/components/brain/space-scene";
 import { isSmartPending, shouldAutoRun, withSmart } from "@/lib/smart-utils";
 import { audioMime, describeError } from "@/lib/audio-utils";
 import { buildChildContent, cleanRefs, cleanTopics, profileForPrompt, sanitizeWikilinks } from "@/lib/split-utils";
@@ -38,6 +38,20 @@ describe("cena do grafo 3D", () => {
   it("cor luminosa mistura com branco e aguenta cor vazia", () => {
     expect(luminous("#000000", 0.5).getHexString()).toBe(new Color("#000000").lerp(new Color("#ffffff"), 0.5).getHexString());
     expect(luminous("").getHexString()).toHaveLength(6);
+  });
+});
+
+describe("alvo de clique do neurônio", () => {
+  it("perto: só o miolo responde, o halo não", () => {
+    const r = hitRadius(0.12, 24, 300); // neurônio grande na tela
+    expect(r).toBe(0.12);
+    expect(insideHit({ x: 0.55, y: 0.5 }, r)).toBe(true);
+    expect(insideHit({ x: 0.75, y: 0.5 }, r)).toBe(false); // borda do brilho
+  });
+  it("longe: o alvo cresce até um mínimo em pixels, sem passar do sprite", () => {
+    expect(hitRadius(0.12, 24, 60)).toBeCloseTo(0.2); // 12px de raio em 60px
+    expect(hitRadius(0.12, 24, 10)).toBe(0.5);
+    expect(hitRadius(0.12, 24, 0)).toBe(0.12);
   });
 });
 

@@ -102,3 +102,18 @@ export function createSpace() {
     },
   };
 }
+
+/**
+ * Raio do alvo de clique de um neurônio, em unidades da textura (0,5 = sprite inteiro).
+ * Normalmente só o miolo (`core`); mas o alvo nunca fica menor que `minPx` na tela, senão notas
+ * distantes (pequenas) seriam impossíveis de acertar.
+ */
+export function hitRadius(core: number, minPx: number, spritePx: number) {
+  if (!(spritePx > 0)) return core;
+  return Math.min(0.5, Math.max(core, minPx / 2 / spritePx));
+}
+
+/** O ponto tocado (uv da textura) está dentro do alvo? */
+export function insideHit(uv: { x: number; y: number }, radius: number) {
+  return Math.hypot(uv.x - 0.5, uv.y - 0.5) <= radius;
+}

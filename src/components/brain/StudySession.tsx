@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useMotionValue, useTransform } from "motion/react";
 import { toast } from "sonner";
 import { saveReview, type Card } from "@/lib/brain";
 import { GRADES, intervalLabel, schedule, type Grade } from "@/lib/study-utils";
@@ -18,6 +18,11 @@ export function StudySession({ cards, onDone }: { cards: Card[]; onDone: (review
   const [reviewed, setReviewed] = useState(0);
   const card = queue[0];
   const today = todayISO();
+  const dragX = useMotionValue(0);
+  const dragRotate = useTransform(dragX, [-200, 200], [-8, 8]);
+  const goodHint = useTransform(dragX, [20, 110], [0, 1]);
+  const badHint = useTransform(dragX, [-110, -20], [1, 0]);
+  const dragged = useRef(false);
 
   async function grade(g: Grade) {
     if (!card || !flipped) return;
@@ -67,11 +72,21 @@ export function StudySession({ cards, onDone }: { cards: Card[]; onDone: (review
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -40 }}
           transition={{ duration: 0.25, ease: EASE }}
-          style={{ perspective: 1200 }}
+          style={{ perspective: 1200, x: dragX, rotate: dragRotate }}
+          // Com a resposta à mostra: arrastar para a direita = "Bom", para a esquerda = "Errei".
+          drag={flipped ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.7}
+          onDragStart={() => (dragged.current = true)}
+          onDragEnd={(_, info) => {
+            setTimeout(() => (dragged.current = false), 50);
+            if (info.offset.x > 110) grade(3);
+            else if (info.offset.x < -110) grade(1);
+          }}
         >
           <motion.button
             type="button"
-            onClick={() => setFlipped((f) => !f)}
+            onClick={() => !dragged.current && setFlipped((f) => !f)}
             aria-label={flipped ? "Mostrar pergunta" : "Mostrar resposta"}
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 26 }}
@@ -80,6 +95,8 @@ export function StudySession({ cards, onDone }: { cards: Card[]; onDone: (review
           >
             <Face label="Pergunta" text={card.question} hint="Toque ou aperte espaço para ver a resposta" />
             <Face label="Resposta" text={card.answer} back />
+            <motion.span aria-hidden style={{ opacity: goodHint, gridArea: "1 / 1", transform: "rotateY(180deg)" }} className="pointer-events-none m-3 self-start justify-self-start rounded-md border-2 border-emerald-500 px-2 py-0.5 text-sm font-bold text-emerald-500">BOM</motion.span>
+            <motion.span aria-hidden style={{ opacity: badHint, gridArea: "1 / 1", transform: "rotateY(180deg)" }} className="pointer-events-none m-3 self-start justify-self-end rounded-md border-2 border-destructive px-2 py-0.5 text-sm font-bold text-destructive">ERREI</motion.span>
           </motion.button>
         </motion.div>
       </AnimatePresence>

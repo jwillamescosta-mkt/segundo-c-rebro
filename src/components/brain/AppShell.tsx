@@ -169,7 +169,9 @@ function Shell({ children }: { children: ReactNode }) {
 
   if (isMobile) {
     return (
-      <div className="flex h-[100dvh] flex-col bg-background">
+      <div className="flex h-[100dvh] flex-col bg-background pt-[env(safe-area-inset-top)]">
+        {/* Faixa atrás da barra de status/Dynamic Island: escura, para o texto branco do iOS ficar legível em qualquer tema */}
+        <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[env(safe-area-inset-top)] bg-[#1e1e1e]" />
         <main className="min-h-0 flex-1 overflow-y-auto">{page}</main>
         <MobileNav />
         <CaptureDialog />

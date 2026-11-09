@@ -153,10 +153,20 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
         linkDirectionalParticleWidth={(l) => (isActiveLink(l) ? 3 : 1.6)}
         linkDirectionalParticleColor={() => colors.primary}
         onNodeHover={(n) => {
+          if (window.matchMedia("(hover: none)").matches) return; // no toque, o foco vem do 1º toque (onNodeClick)
           setHover(n ? (n.id as string) : null);
           if (wrap.current) wrap.current.style.cursor = n ? "pointer" : "default";
         }}
-        onNodeClick={(n) => onNodeClick?.(n.id as string)}
+        onNodeClick={(n) => {
+          const id = n.id as string;
+          // Toque (sem hover): o 1º toque foca a nota e mostra as ligações; o 2º na mesma nota abre.
+          if (window.matchMedia("(hover: none)").matches && hover !== id) {
+            setHover(id);
+            return;
+          }
+          onNodeClick?.(id);
+        }}
+        onBackgroundClick={() => setHover(null)}
         nodeCanvasObject={(n, ctx, scale) => {
           const now = performance.now();
           const id = n.id as string;

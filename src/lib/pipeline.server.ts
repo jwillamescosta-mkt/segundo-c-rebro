@@ -1,4 +1,4 @@
-import { generateChatCompletion, GatewayError } from "@lovable.dev/ai-gateway";
+import { generateChatCompletion, GatewayError, transcribeAudio } from "@lovable.dev/ai-gateway";
 import JSZip from "jszip";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -268,13 +268,30 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
         await setProgress(db, noteId, "Transcrevendo…");
         const buf = await download(db, note.attachment_path);
         const e = ext(note.attachment_path);
-        const transcript = await chatText(
-          "Você transcreve áudios em português do Brasil com fidelidade. Responda apenas com a transcrição, com pontuação e parágrafos. Não invente conteúdo.",
-          [
-            { type: "text", text: "Transcreva este áudio." },
-            { type: "input_audio", input_audio: { data: toB64(buf), format: e === "weba" ? "webm" : e || "webm" } },
-          ],
-        );
+        // iPhone grava em m4a (AAC): vai pelo endpoint de transcrição, que aceita esse formato.
+        // Se falhar, ou para webm, segue pelo caminho antigo (áudio no chat).
+        let transcript = "";
+        if (e !== "webm" && e !== "weba") {
+          try {
+            const mime = e === "m4a" || e === "mp4" || e === "aac" ? "audio/mp4" : e === "mp3" ? "audio/mpeg" : `audio/${e || "mpeg"}`;
+            const r = await transcribeAudio({
+              model: "openai/gpt-4o-transcribe",
+              file: new File([buf], `audio.${e || "m4a"}`, { type: mime }),
+              language: "pt",
+            });
+            transcript = (typeof r === "string" ? r : r.text ?? "").trim();
+          } catch (err) {
+            console.warn("transcribeAudio falhou, usando o chat", err);
+          }
+        }
+        if (!transcript)
+          transcript = await chatText(
+            "Você transcreve áudios em português do Brasil com fidelidade. Responda apenas com a transcrição, com pontuação e parágrafos. Não invente conteúdo.",
+            [
+              { type: "text", text: "Transcreva este áudio." },
+              { type: "input_audio", input_audio: { data: toB64(buf), format: e === "weba" ? "webm" : e || "webm" } },
+            ],
+          );
         if (!transcript) throw new Error("Não foi possível transcrever o áudio.");
         content = (userText ? userText + "\n\n" : "") + "## Transcrição\n\n" + transcript;
       } else if (note.source_kind === "imagem" && note.attachment_path) {

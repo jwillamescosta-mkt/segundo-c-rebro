@@ -220,6 +220,15 @@
   animation: rec-ring 1.3s ease-out infinite;
 }
 
+/* iPhone: o Safari dá zoom ao focar campos com texto menor que 16px. Fora de @layer para vencer os utilitários. */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 /* Borda luminosa girando em volta do "Lampejo do dia" */
 @property --spark-angle {
   syntax: "<angle>";

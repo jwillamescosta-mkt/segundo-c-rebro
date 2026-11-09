@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { deleteNote, noteQuery, saveNoteContent, signedUrl, splitChildren, undoSplit, updateNote, type Note } from "@/lib/brain";
 import { useApp, useBrain } from "@/components/brain/app-context";
 import { Markdown } from "@/components/brain/Markdown";
+import { useDraftSync } from "@/hooks/use-draft-sync";
 import { GenerateCardsButton } from "@/components/brain/GenerateCardsButton";
 import { TypeIcon } from "@/components/brain/type-meta";
 import { typeLabel } from "@/lib/markdown-utils";
@@ -49,37 +50,26 @@ function NoteEditor({ note }: { note: Note }) {
   const { runProcess } = useApp();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [title, setTitle] = useState(note.title);
-  const [content, setContent] = useState(note.content);
+  const { draft, edit } = useDraftSync({ title: note.title, content: note.content }, async (d) => {
+    try {
+      await saveNoteContent(note, d);
+      qc.invalidateQueries({ queryKey: ["links"] });
+      qc.invalidateQueries({ queryKey: ["notes"] });
+      qc.setQueryData<Note | null>(["note", note.id], (old) => (old ? { ...old, ...d } : old));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao salvar.");
+      throw e;
+    }
+  });
+  const { title, content } = draft;
   const [mode, setMode] = useState<"editar" | "dividir" | "ler">("ler");
   const [ac, setAc] = useState<{ q: string; i: number } | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
-  const dirty = useRef(false);
-
-  // follow server updates while not editing (e.g. AI processing)
-  useEffect(() => {
-    if (!dirty.current) { setContent(note.content); setTitle(note.title); }
-  }, [note.content, note.title]);
-
-  useEffect(() => {
-    if (!dirty.current) return;
-    const t = setTimeout(async () => {
-      try {
-        await saveNoteContent(note, { title, content });
-        dirty.current = false;
-        qc.invalidateQueries({ queryKey: ["links"] });
-        qc.invalidateQueries({ queryKey: ["notes"] });
-        qc.setQueryData<Note | null>(["note", note.id], (old) => (old ? { ...old, title, content } : old));
-      } catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao salvar."); }
-    }, 900);
-    return () => clearTimeout(t);
-  }, [title, content]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const suggestions = ac ? notes.filter((n) => n.id !== note.id && n.title.toLowerCase().includes(ac.q.toLowerCase())).slice(0, 8) : [];
 
   function onChange(v: string) {
-    dirty.current = true;
-    setContent(v);
+    edit({ content: v });
     const pos = ta.current?.selectionStart ?? v.length;
     const m = v.slice(0, pos).match(/\[\[([^\]\n]*)$/);
     setAc(m ? { q: m[1], i: 0 } : null);
@@ -149,7 +139,7 @@ function NoteEditor({ note }: { note: Note }) {
           </ul>
         </div>
       )}
-      <input value={title} onChange={(e) => { dirty.current = true; setTitle(e.target.value); }} className="mb-2 w-full bg-transparent text-2xl font-semibold outline-none" />
+      <input value={title} onChange={(e) => edit({ title: e.target.value })} className="mb-2 w-full bg-transparent text-2xl font-semibold outline-none" />
       {note.summary && <p className="mb-4 border-l-2 border-primary pl-3 text-sm text-muted-foreground">{note.summary}</p>}
       <Attachment note={note} />
       <div className={cn("grid gap-4", mode === "dividir" && "md:grid-cols-2")}>

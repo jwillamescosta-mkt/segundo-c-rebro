@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { Check, Copy, KeyRound, Mic, Share, Smartphone, Trash2, Wand2 } from "lucide-react";
+import { Check, Copy, KeyRound, MessageSquare, Mic, Share, Smartphone, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/brain/motion";
@@ -34,7 +34,8 @@ function ShortcutsPage() {
   const tokens = useQuery(tokensQuery).data ?? [];
   const [name, setName] = useState("iPhone");
   const [fresh, setFresh] = useState<string | null>(null);
-  const endpoint = typeof window !== "undefined" ? `${window.location.origin}/api/capturar` : "/api/capturar";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const endpoint = `${origin}/api/capturar`;
 
   async function create() {
     try {
@@ -76,6 +77,11 @@ function ShortcutsPage() {
             <div className="flex items-center gap-2">
               <code className="flex-1 break-all rounded bg-background px-2 py-1 font-mono text-xs">{fresh}</code>
               <Button size="sm" variant="outline" onClick={() => copy(fresh)} className="gap-1"><Copy className="size-3.5" /> Copiar</Button>
+            </div>
+            <p className="pt-1 text-xs font-medium">Endereço do conector do Claude (já leva o token):</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all rounded bg-background px-2 py-1 font-mono text-xs">{`${origin}/api/mcp/${fresh}`}</code>
+              <Button size="sm" variant="outline" onClick={() => copy(`${origin}/api/mcp/${fresh}`)} className="gap-1"><Copy className="size-3.5" /> Copiar</Button>
             </div>
             <Button size="sm" variant="ghost" onClick={() => setFresh(null)} className="gap-1"><Check className="size-3.5" /> Já guardei</Button>
           </motion.div>
@@ -137,6 +143,21 @@ function ShortcutsPage() {
             "“Obter Conteúdo do URL” com POST e o cabeçalho Authorization.",
             "Corpo = Formulário: campo “texto” = Entrada do Atalho (para links e textos) ou campo “arquivo” = Entrada do Atalho (para imagens e PDFs).",
             "Pronto: em qualquer app, Compartilhar → nome do atalho.",
+          ]}
+        />
+      </Reveal>
+
+      <Reveal delay={0.15} className="space-y-4">
+        <h2 className="text-sm font-semibold">4. Conector do Claude (chat como porta de entrada)</h2>
+        <Guide
+          icon={MessageSquare}
+          title="Anotar pelo chat do Claude"
+          steps={[
+            "Crie um token novo (passo 1) só para o Claude e copie o “Endereço do conector do Claude”.",
+            "No Claude (site ou app): Configurações → Conectores → Adicionar conector personalizado.",
+            "Nome: Segundo Cérebro. URL: cole o endereço do conector. Salve, sem preencher login (OAuth).",
+            "Num chat, ative o conector e peça: “anota no meu segundo cérebro que…”. O Claude usa a ferramenta capturar_nota.",
+            "O conector só cria notas: ele não lê nada do seu cérebro. Se o endereço vazar, revogue o token aqui.",
           ]}
         />
       </Reveal>

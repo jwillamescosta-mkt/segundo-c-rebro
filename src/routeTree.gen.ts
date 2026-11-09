@@ -25,6 +25,7 @@ import { Route as AppTarefasRouteImport } from './routes/_app/tarefas'
 import { Route as ApiCapturarRouteImport } from './routes/api/capturar'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as AppNotaIdRouteImport } from './routes/_app/nota.$id'
+import { Route as ApiMcpTokenRouteImport } from './routes/api/mcp.$token'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -105,6 +106,11 @@ const AppNotaIdRoute = AppNotaIdRouteImport.update({
   path: '/nota/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiMcpTokenRoute = ApiMcpTokenRouteImport.update({
+  id: '/api/mcp/$token',
+  path: '/api/mcp/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
   '/nota/$id': typeof AppNotaIdRoute
+  '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByTo {
   '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
   '/nota/$id': typeof AppNotaIdRoute
+  '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
   '/_app/nota/$id': typeof AppNotaIdRoute
+  '/api/mcp/$token': typeof ApiMcpTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/api/capturar'
     | '/s/$token'
     | '/nota/$id'
+    | '/api/mcp/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/api/capturar'
     | '/s/$token'
     | '/nota/$id'
+    | '/api/mcp/$token'
   id:
     | '__root__'
     | '/'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/api/capturar'
     | '/s/$token'
     | '/_app/nota/$id'
+    | '/api/mcp/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -220,6 +232,7 @@ export interface RootRouteChildren {
   EntrarRoute: typeof EntrarRoute
   ApiCapturarRoute: typeof ApiCapturarRoute
   STokenRoute: typeof STokenRoute
+  ApiMcpTokenRoute: typeof ApiMcpTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNotaIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/mcp/$token': {
+      id: '/api/mcp/$token'
+      path: '/api/mcp/$token'
+      fullPath: '/api/mcp/$token'
+      preLoaderRoute: typeof ApiMcpTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -375,6 +395,7 @@ const rootRouteChildren: RootRouteChildren = {
   EntrarRoute: EntrarRoute,
   ApiCapturarRoute: ApiCapturarRoute,
   STokenRoute: STokenRoute,
+  ApiMcpTokenRoute: ApiMcpTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

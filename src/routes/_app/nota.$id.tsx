@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Loader2, Pin, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, Loader2, Pin, RefreshCw, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { deleteNote, noteQuery, saveNoteContent, signedUrl, updateNote, type Note } from "@/lib/brain";
+import { deleteNote, noteQuery, saveNoteContent, signedUrl, splitChildren, undoSplit, updateNote, type Note } from "@/lib/brain";
 import { useApp, useBrain } from "@/components/brain/app-context";
 import { Markdown } from "@/components/brain/Markdown";
 import { GenerateCardsButton } from "@/components/brain/GenerateCardsButton";
@@ -94,6 +94,7 @@ function NoteEditor({ note }: { note: Note }) {
     requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = before.length; });
   }
 
+  const points = splitChildren(notes, note.id);
   const captures = note.type === "diario" && note.daily_date ? notes.filter((n) => n.id !== note.id && n.created_at.slice(0, 10) === note.daily_date) : [];
 
   return (
@@ -115,6 +116,37 @@ function NoteEditor({ note }: { note: Note }) {
         <div className="mb-4 flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
           <AlertCircle className="size-4 text-destructive" /> {note.error_message ?? "Falha ao processar."}
           <Button size="sm" variant="outline" className="ml-auto h-7" onClick={() => runProcess(note.id, "full")}>Tentar de novo</Button>
+        </div>
+      )}
+      {points.length > 0 && (
+        <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-3.5 text-primary" />
+            <span className="font-medium">A IA separou esta captura em {points.length} pontos</span>
+            <button
+              onClick={async () => {
+                if (!confirm(`Desfazer a separação? Os ${points.length} pontos serão apagados. Esta captura continua como está.`)) return;
+                try {
+                  await undoSplit(note.id);
+                  qc.invalidateQueries({ queryKey: ["notes"] });
+                  qc.invalidateQueries({ queryKey: ["links"] });
+                  toast.success("Separação desfeita.");
+                } catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível desfazer."); }
+              }}
+              className="ml-auto flex items-center gap-1 rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-destructive"
+            >
+              <Undo2 className="size-3" /> Desfazer
+            </button>
+          </div>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {points.map((p) => (
+              <li key={p.id}>
+                <Link to="/nota/$id" params={{ id: p.id }} className="flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-xs hover:border-primary hover:text-primary">
+                  <TypeIcon type={p.type} /> {p.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       <input value={title} onChange={(e) => { dirty.current = true; setTitle(e.target.value); }} className="mb-2 w-full bg-transparent text-2xl font-semibold outline-none" />

@@ -8,7 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { eventsQuery, invalidateBrain, linksQuery, notesQuery, tasksQuery, type Link, type Note, type NoteMeta } from "@/lib/brain";
-import { ensureRulesNote } from "@/lib/rules-note";
+import { ensureProfileNote, ensureRulesNote } from "@/lib/rules-note";
 import { processNote } from "@/lib/process.functions";
 
 interface Ctx {
@@ -149,7 +149,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
-      ensureRulesNote(supabase, data.user.id).then((created) => created && invalidateBrain(qc));
+      const uid = data.user.id;
+      Promise.all([ensureRulesNote(supabase, uid), ensureProfileNote(supabase, uid)]).then((made) => made.some(Boolean) && invalidateBrain(qc));
     });
   }, [qc]);
 

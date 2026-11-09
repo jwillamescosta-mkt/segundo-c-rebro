@@ -7,6 +7,7 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { buildChildContent, cleanRefs, cleanTopics, profileForPrompt, sanitizeWikilinks } from "@/lib/split-utils";
 import { goalPace, goalProgress, krProgress } from "@/lib/goals-utils";
 import { BRIEFING_HEADING, demoteHeadings, upsertBriefing } from "@/lib/briefing-utils";
 import { cardsToMarkdown, intervalLabel, schedule } from "@/lib/study-utils";
@@ -19,6 +20,42 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("separar capturas em pontos", () => {
+  const t = (title: string, confidence = 0.9, type = "ideia") => ({ title, type, summary: "s", content: `texto ${title}`, tags: ["#A"], confidence });
+  it("só separa quando sobram 2 ou mais assuntos confiáveis", () => {
+    expect(cleanTopics([t("Escola do João")])).toEqual([]);
+    expect(cleanTopics([t("Escola do João"), t("Orçamento", 0.4)])).toEqual([]);
+    expect(cleanTopics([t("Escola do João"), t("Orçamento")])).toHaveLength(2);
+  });
+  it("normaliza tipo inválido, remove duplicados, limpa tags e limita a 6", () => {
+    const r = cleanTopics([t("A", 0.9, "xyz"), t("a"), t("B", 0.9, "diario"), ...["C", "D", "E", "F", "G", "H"].map((x) => t(x))]);
+    expect(r).toHaveLength(6);
+    expect(r[0]).toMatchObject({ title: "A", type: "ideia", tags: ["a"] });
+    expect(r[1]).toMatchObject({ title: "B", type: "ideia" });
+  });
+  it("aceita só pessoa, cliente e projeto, sem repetir", () => {
+    const refs = cleanRefs([
+      { name: "Maria", type: "pessoa", relation: "esposa", confidence: 0.95 },
+      { name: "maria", type: "pessoa", relation: "dup", confidence: 1 },
+      { name: "Escola", type: "lugar", relation: "", confidence: 1 },
+      { name: "X", type: "pessoa", relation: "", confidence: 1 },
+    ]);
+    expect(refs).toEqual([{ name: "Maria", type: "pessoa", relation: "esposa", confidence: 0.95 }]);
+  });
+  it("wikilink para nota inexistente vira texto simples; existente é mantida", () => {
+    const known = new Set(["maria"]);
+    expect(sanitizeWikilinks("Falei com [[Maria]] e [[Fulano]] e [[Zé|o Zé]]", known)).toBe("Falei com [[Maria]] e Fulano e o Zé");
+  });
+  it("conteúdo do ponto termina com a origem ligada", () => {
+    const md = buildChildContent({ title: "Escola", type: "ideia", summary: "", content: "Levei [[Joao]]", tags: [], confidence: 1 }, "Captura de terça", new Set());
+    expect(md).toBe("# Escola\n\nLevei Joao\n\nOrigem: [[Captura de terça]]\n");
+  });
+  it("perfil ignora as linhas ainda não preenchidas", () => {
+    const p = profileForPrompt("## Família\n- (preencha: quem mora)\n- Maria (esposa)\n-");
+    expect(p).toBe("## Família\n- Maria (esposa)");
+  });
+});
 
 describe("metas", () => {
   it("progresso é a média dos resultados-chave, limitado a 100%", () => {

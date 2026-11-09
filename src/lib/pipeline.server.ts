@@ -5,6 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { NOTE_TYPE_VALUES, extractHashtags, linkStatusForConfidence, mergeTags, normalizeTitle } from "./markdown-utils";
 import { syncWikilinks } from "./wikilink-sync";
 import { cleanTime, eventStatusForConfidence, localToTimestamptz } from "./tasks-utils";
+import { applySplit, gatherContext } from "./split.server";
 
 const MODEL = "google/gemini-3.8-flash" as const;
 const MAX_TEXT = 30000;
@@ -174,6 +175,8 @@ interface Analysis {
   tags: string[];
   tasks: { text: string; due_date: string | null; due_time?: string | null }[];
   events?: { title: string; date: string; start_time: string | null; end_time: string | null; confidence: number }[];
+  topics?: { title: string; type: string; summary: string; content: string; tags: string[]; confidence: number }[];
+  refs?: { name: string; type: string; relation: string; confidence: number }[];
   entities: { pessoas?: string[]; clientes?: string[]; projetos?: string[] };
 }
 
@@ -211,6 +214,41 @@ const analysisSchema = {
         required: ["title", "date", "start_time", "end_time", "confidence"],
       },
     },
+    topics: {
+      type: "array",
+      description:
+        "Preencha SOMENTE se a captura trata de 2 ou mais assuntos realmente distintos (ex.: filho + trabalho + saúde). Um item por assunto. Deixe vazio se for um assunto só.",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título curto do assunto." },
+          type: { type: "string", enum: NOTE_TYPE_VALUES },
+          summary: { type: "string", description: "Uma frase." },
+          content: {
+            type: "string",
+            description:
+              "O trecho da captura sobre este assunto, com as palavras do usuário, completado com o contexto necessário (quem é 'ela', de qual projeto se trata). Use [[Título exato]] para pessoas, clientes e projetos já cadastrados.",
+          },
+          tags: { type: "array", items: { type: "string" } },
+          confidence: { type: "number", minimum: 0, maximum: 1, description: "Certeza de que este é um assunto à parte." },
+        },
+        required: ["title", "type", "summary", "content", "tags", "confidence"],
+      },
+    },
+    refs: {
+      type: "array",
+      description: "Pessoas, clientes e projetos citados na captura (inclusive por pronome ou apelido, resolvidos pelo contexto).",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Nome como está cadastrado; se for novo, o nome completo mais usado." },
+          type: { type: "string", enum: ["pessoa", "cliente", "projeto"] },
+          relation: { type: "string", description: "Papel em relação ao usuário ou à captura (ex.: 'esposa', 'filho', 'cliente de marketing', 'projeto do trabalho')." },
+          confidence: { type: "number", minimum: 0, maximum: 1 },
+        },
+        required: ["name", "type", "relation", "confidence"],
+      },
+    },
     entities: {
       type: "object",
       properties: {
@@ -220,7 +258,7 @@ const analysisSchema = {
       },
     },
   },
-  required: ["title", "summary", "type", "tags", "tasks", "entities"],
+  required: ["title", "summary", "type", "tags", "tasks", "topics", "refs", "entities"],
 };
 
 const linksSchema = {
@@ -346,12 +384,19 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
     // Analysis
     await setProgress(db, noteId, "Analisando…");
     const today = todayContext();
+    // Primeira passada: o que o app já sabe (perfil, pessoas, projetos e notas parecidas). Falha aqui não bloqueia a análise.
+    const ctx = await gatherContext(db, noteId, content).catch((e) => {
+      console.warn("contexto indisponível", e);
+      return { prompt: "", entities: [], known: new Set<string>() };
+    });
     const analysis = await chatTool<Analysis>(
       `Você organiza um segundo cérebro pessoal em português do Brasil. Hoje é ${today.human} (${today.iso}). ` +
-        "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda e entidades. " +
+        "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda, entidades, pessoas/clientes/projetos citados (refs) e, se for o caso, os assuntos distintos (topics). " +
         "Só crie tarefas quando houver uma ação concreta a fazer. Só crie compromissos quando houver data identificável; não invente horários. " +
-        "Horários estão no fuso de Brasília.",
-      `Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
+        "Horários estão no fuso de Brasília. " +
+        "Use o PERFIL e os cadastros para entender o contexto: resolva pronomes, apelidos e papéis (quem é 'ela', 'o chefe', 'o pequeno') e prefira SEMPRE o título exato de quem já está cadastrado em vez de criar um nome novo. " +
+        "Em topics, separe apenas assuntos que fariam sentido como notas independentes (ex.: um filho, um cliente e uma tarefa de saúde na mesma fala); NUNCA fragmente um assunto único, e não invente nada que o usuário não disse.",
+      `${ctx.prompt ? ctx.prompt + "\n\n---\n\n" : ""}Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
       "salvar_analise",
       analysisSchema,
     );
@@ -410,6 +455,20 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
       }];
     });
     if (eventRows.length) await db.from("events").insert(eventRows);
+
+    // Segunda passada: pessoas/projetos como nós únicos e capturas com vários assuntos viram vários pontos.
+    // Não é crítico: se falhar, a nota segue como uma nota só.
+    await setProgress(db, noteId, "Separando assuntos…");
+    await applySplit(db, {
+      noteId,
+      userId,
+      sourceTitle: title,
+      sourceType: note.type === "diario" ? "diario" : type,
+      topics: analysis.topics,
+      refs: analysis.refs,
+      entities: ctx.entities,
+      known: ctx.known,
+    }).catch((e) => console.warn("separação falhou", noteId, e));
 
     // Connections
     await setProgress(db, noteId, "Encontrando conexões…");

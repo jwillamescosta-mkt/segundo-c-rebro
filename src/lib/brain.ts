@@ -218,6 +218,17 @@ export async function updateNote(id: string, patch: Partial<Note>) {
   if (error) throw error;
 }
 
+/** Pontos criados pela IA a partir de uma captura (guardam a origem em entities.split_from). */
+export function splitChildren<T extends { id: string; entities: unknown }>(notes: T[], sourceId: string) {
+  return notes.filter((n) => (n.entities as Record<string, unknown> | null)?.["split_from"] === sourceId);
+}
+
+/** Desfaz a separação: apaga só os pontos criados a partir desta captura. A captura original não é tocada. */
+export async function undoSplit(sourceId: string) {
+  const { error } = await supabase.from("notes").delete().eq("entities->>split_from", sourceId);
+  if (error) throw error;
+}
+
 export async function deleteNote(note: Pick<Note, "id" | "attachment_path">) {
   if (note.attachment_path) await supabase.storage.from("anexos").remove([note.attachment_path]);
   const { error } = await supabase.from("notes").delete().eq("id", note.id);

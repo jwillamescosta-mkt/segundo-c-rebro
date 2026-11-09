@@ -183,8 +183,9 @@ function NoteSidePanel({ note }: { note: NoteMeta }) {
                 .map((l) => {
                   const o = byId.get(l.target_note_id);
                   return o ? (
-                    <Link key={l.id} to="/nota/$id" params={{ id: o.id }} className="rounded border px-1.5 py-0.5 text-xs hover:border-primary">
+                    <Link key={l.id} to="/nota/$id" params={{ id: o.id }} title={l.reason ?? undefined} className="rounded border px-1.5 py-0.5 text-xs hover:border-primary">
                       {o.title}
+                      {l.kind === "ia" && l.reason && <span className="ml-1 text-muted-foreground">· {l.reason}</span>}
                     </Link>
                   ) : null;
                 })}

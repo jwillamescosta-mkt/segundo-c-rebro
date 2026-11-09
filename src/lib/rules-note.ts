@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { syncWikilinks } from "./wikilink-sync";
+import { PROFILE_TEMPLATE, PROFILE_TITLE } from "./split-utils";
 
 export const RULES_TITLE = "Regras do meu cérebro";
 
@@ -34,6 +35,32 @@ Ligada a [[Segundo Cérebro]]. Releia antes de capturar algo sensível.
 
 #regras #segundo-cerebro
 `;
+
+/** Nota "Quem sou eu": modelo para o usuário preencher; a IA a lê antes de analisar cada captura. */
+const profileRuns = new Map<string, Promise<boolean>>();
+export function ensureProfileNote(db: SupabaseClient<Database>, userId: string) {
+  const running = profileRuns.get(userId) ?? createProfileNote(db, userId).catch(() => false);
+  profileRuns.set(userId, running);
+  return running;
+}
+
+async function createProfileNote(db: SupabaseClient<Database>, userId: string) {
+  const { data: found, error } = await db.from("notes").select("id").eq("title", PROFILE_TITLE).limit(1);
+  if (error || found?.length) return false;
+  const { error: insErr } = await db.from("notes").insert({
+    user_id: userId,
+    title: PROFILE_TITLE,
+    content: PROFILE_TEMPLATE,
+    type: "referencia",
+    tags: ["perfil"],
+    source_kind: "texto",
+    status: "pronta",
+    pinned: true,
+    summary: "Perfil lido pela IA para entender o contexto das capturas: família, trabalho, rotina e papéis.",
+    entities: {},
+  });
+  return !insErr;
+}
 
 // Uma execução por usuário e aba (evita corrida com o efeito duplo do React em desenvolvimento).
 const runs = new Map<string, Promise<boolean>>();

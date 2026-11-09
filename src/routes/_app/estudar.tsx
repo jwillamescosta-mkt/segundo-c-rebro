@@ -8,6 +8,7 @@ import { useBrain } from "@/components/brain/app-context";
 import { GenerateCardsButton } from "@/components/brain/GenerateCardsButton";
 import { Reveal, StaggerItem, StaggerList } from "@/components/brain/motion";
 import { StudySession } from "@/components/brain/StudySession";
+import { SynthesisBox } from "@/components/brain/SynthesisBox";
 import { TypeIcon } from "@/components/brain/type-meta";
 import { cardsMetaQuery, dueCardsQuery } from "@/lib/brain";
 import { localDate, todayISO } from "@/lib/tasks-utils";
@@ -89,6 +90,10 @@ function StudyPage() {
           )}
         </div>
       )}
+
+      <Reveal delay={0.05}>
+        <SynthesisBox />
+      </Reveal>
 
       <Reveal delay={0.1}>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Notas para transformar em estudo</h2>

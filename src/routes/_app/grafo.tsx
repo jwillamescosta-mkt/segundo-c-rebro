@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useBrain } from "@/components/brain/app-context";
 import { LazyGraph } from "@/components/brain/LazyGraph";
+import { useSynthesize } from "@/components/brain/SynthesisBox";
+import { Layers, Loader2 } from "lucide-react";
 import { TypeDot } from "@/components/brain/type-meta";
 import { NOTE_TYPES } from "@/lib/markdown-utils";
 import { buildGraph } from "@/lib/graph-data";
@@ -17,6 +19,7 @@ export const Route = createFileRoute("/_app/grafo")({
 function GraphPage() {
   const { notes, links } = useBrain();
   const navigate = useNavigate();
+  const synth = useSynthesize();
   const [types, setTypes] = useState<Set<string> | null>(null);
   const [tag, setTag] = useState<string>("");
   const [q, setQ] = useState("");
@@ -38,6 +41,11 @@ function GraphPage() {
           <option value="">Todas as tags</option>
           {tags.map((t) => <option key={t} value={t}>#{t}</option>)}
         </select>
+        {tag && (
+          <button onClick={() => synth.go(`#${tag}`)} disabled={!!synth.busy} className="flex w-full items-center justify-center gap-1 rounded bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+            {synth.busy ? <Loader2 className="size-3 animate-spin" /> : <Layers className="size-3" />} {synth.busy ? "Sintetizando…" : `Sintetizar #${tag}`}
+          </button>
+        )}
         <label className="flex items-center justify-between">Mostrar órfãs <Switch checked={orphans} onCheckedChange={setOrphans} /></label>
         <label className="flex items-center justify-between">Sugestões da IA <Switch checked={sugg} onCheckedChange={setSugg} /></label>
         <div><p className="mb-1 text-muted-foreground">Repulsão</p><Slider min={30} max={600} value={[rep]} onValueChange={(v) => setRep(v[0])} /></div>

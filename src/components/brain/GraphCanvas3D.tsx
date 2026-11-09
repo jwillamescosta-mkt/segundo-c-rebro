@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph3D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-3d";
-import { AdditiveBlending, CanvasTexture, FogExp2, Sprite, SpriteMaterial } from "three";
+import { AdditiveBlending, Color, FogExp2, Sprite, SpriteMaterial, Vector3 } from "three";
 import { useReducedMotion } from "motion/react";
 import type { GLink, GNode } from "./GraphCanvas";
-import { isDarkColor, useGraphColors } from "./graph-colors";
+import { useGraphColors } from "./graph-colors";
+import { LINK_MATERIALS, SPACE, createSpace, luminous, neuronTexture } from "./space-scene";
 
 type N = NodeObject<GNode>;
 type L = LinkObject<GNode, GLink>;
@@ -20,34 +21,18 @@ interface Props {
 
 const endId = (x: unknown) => (typeof x === "object" && x ? (x as N).id : (x as string)) as string;
 const IDLE_MS = 6000;
+const GOLD = new Color(SPACE.gold);
 
-let glowTex: CanvasTexture | null = null;
-/** Textura do halo: um ponto de luz suave, criado uma vez e reaproveitado por todas as notas. */
-function glowTexture() {
-  if (glowTex) return glowTex;
-  const c = document.createElement("canvas");
-  c.width = c.height = 64;
-  const x = c.getContext("2d")!;
-  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, "rgba(255,255,255,1)");
-  g.addColorStop(0.22, "rgba(255,255,255,0.5)");
-  g.addColorStop(1, "rgba(255,255,255,0)");
-  x.fillStyle = g;
-  x.fillRect(0, 0, 64, 64);
-  glowTex = new CanvasTexture(c);
-  return glowTex;
-}
-
-type HaloNode = N & { __threeObj?: { children: Sprite[] } };
-/** Mesmo cálculo de raio da biblioteca (cbrt do valor × nodeRelSize), para o halo acompanhar a esfera. */
+type NeuronNode = N & { __threeObj?: Sprite };
+/** Tamanho do neurônio: cresce com as conexões (as notas centrais viram os pontos mais brilhantes). */
 const radius = (n: GNode) => Math.cbrt(1 + Math.sqrt(n.degree) * 1.8) * 4;
 
 /**
- * Grafo 3D (WebGL): esferas com halo de luz (brilho aditivo, sem pós-processamento: cor exata do tema e leve no celular),
- * neblina para dar profundidade,
- * pulsos nas ligações da nota em foco e rotação lenta quando ninguém mexe.
- * Desempenho: resolução de pixels limitada a 2x (o iPhone tem 3x), esferas mais simples e sem
- * pulsos em repouso em grafos grandes, e o próprio navegador pausa tudo com a aba escondida.
+ * Grafo 3D "neurônios no espaço": fundo de galáxia com estrelas e poeira desfocada, cada nota é um neurônio
+ * de luz (miolo branco, halo na cor do tipo), ligações são filamentos azuis com faíscas e o foco é dourado.
+ * Sem pós-processamento: tudo é luz aditiva (cor exata e leve no celular). Um sprite por nota, sem esferas.
+ * Desempenho: nitidez limitada a 2x (o iPhone tem 3x), sem faíscas em repouso em grafos grandes, e o
+ * navegador pausa tudo com a aba escondida.
  * Toque/clique: o 1º foca e leva a câmera até a nota; o 2º na mesma nota a abre.
  */
 export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, focusId, repulsion = 180, distance = 60 }: Props) {
@@ -59,7 +44,6 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
   const colors = useGraphColors(true);
   const reduced = useReducedMotion();
   const big = nodes.length > 1500;
-  const glowStrength = useRef(0.9);
   const fogDensity = useRef(0.0004);
 
   useEffect(() => {
@@ -87,7 +71,7 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
   // Opacidade do halo conforme o foco atual. Em ref: os halos podem ser recriados pela biblioteca a qualquer momento
   // (ex.: quando chegam as cores do tema) e devem nascer já com o valor certo, sem depender da ordem dos efeitos.
   const haloOpacity = useRef<(id: string) => number>(() => 0.9);
-  haloOpacity.current = (id: string) => (dim(id) ? 0.03 : id === active ? 1 : glowStrength.current);
+  haloOpacity.current = (id: string) => (dim(id) ? 0.16 : id === active ? 1 : 0.92);
 
   // Montagem única: nitidez limitada e rotação automática.
   useEffect(() => {
@@ -110,23 +94,39 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
     };
   }, [reduced]);
 
-  // Tema: brilho forte no escuro e suave no claro; neblina na cor do fundo.
+  // Espaço: estrelas, poeira desfocada (girando devagar) e neblina azul. Montado uma vez, desmontado na saída.
+  const space = useRef<ReturnType<typeof createSpace> | null>(null);
   useEffect(() => {
     const g = fg.current;
-    if (!g || !colors.bg) return;
-    const dark = isDarkColor(colors.bg);
-    glowStrength.current = dark ? 0.9 : 0.35;
-    g.scene().fog = new FogExp2(colors.bg, fogDensity.current);
-  }, [colors.bg]);
+    if (!g) return;
+    const sp = createSpace();
+    space.current = sp;
+    g.scene().add(sp.group);
+    g.scene().fog = new FogExp2(SPACE.fog, fogDensity.current);
+    let raf = 0;
+    const drift = () => {
+      sp.dust.rotation.y += 0.00035;
+      sp.dust.rotation.x += 0.00012;
+      raf = requestAnimationFrame(drift);
+    };
+    if (!reduced) raf = requestAnimationFrame(drift);
+    return () => {
+      cancelAnimationFrame(raf);
+      g.scene().remove(sp.group);
+      sp.dispose();
+    };
+  }, [reduced]);
 
-  // Halo de cada nota: criado uma vez (função estável, para a biblioteca não recriar a cena a cada render).
-  const nodeHalo = useCallback(
+  // Neurônio de cada nota: criado uma vez (função estável, para a biblioteca não recriar a cena a cada render).
+  const nodeNeuron = useCallback(
     (n: N) => {
-      const mat = new SpriteMaterial({ map: glowTexture(), color: colors[n.type] ?? colors.label, blending: AdditiveBlending, transparent: true, depthWrite: false, opacity: haloOpacity.current(n.id as string) });
+      const tint = luminous(colors[n.type] ?? colors.label);
+      const mat = new SpriteMaterial({ map: neuronTexture(), color: tint, blending: AdditiveBlending, transparent: true, depthWrite: false, opacity: haloOpacity.current(n.id as string) });
       const s = new Sprite(mat);
-      const base = radius(n) * 5;
+      const base = radius(n) * 15;
       s.scale.set(base, base, 1);
       s.userData["base"] = base;
+      s.userData["tint"] = tint;
       return s;
     },
     [colors],
@@ -135,27 +135,29 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
   // Foco: acende o halo da nota ativa e dos vizinhos e apaga o resto, sem recriar a cena.
   const applyHalos = useRef(() => {});
   applyHalos.current = () => {
-    for (const n of data.nodes as HaloNode[]) {
-      const halo = n.__threeObj?.children[0];
-      if (!halo) continue;
+    for (const n of data.nodes as NeuronNode[]) {
+      const neuron = n.__threeObj;
+      if (!neuron?.userData["base"]) continue;
       const id = n.id as string;
-      (halo.material as SpriteMaterial).opacity = haloOpacity.current(id);
-      const base = halo.userData["base"] as number;
-      halo.scale.set(base, base, 1);
+      const mat = neuron.material as SpriteMaterial;
+      mat.opacity = haloOpacity.current(id);
+      mat.color.copy(id === active ? GOLD : (neuron.userData["tint"] as Color));
+      const base = neuron.userData["base"] as number;
+      neuron.scale.set(base, base, 1);
     }
   };
   useEffect(() => applyHalos.current(), [active, highlight, data, colors]);
 
-  // A nota ativa "respira" (só ela, barato). Procura o halo a cada quadro: pode ter acabado de nascer.
+  // A nota ativa "respira" (só ela, barato). Procura o neurônio a cada quadro: pode ter acabado de nascer.
   useEffect(() => {
     if (!active || reduced) return;
-    const node = (data.nodes as HaloNode[]).find((n) => n.id === active);
+    const node = (data.nodes as NeuronNode[]).find((n) => n.id === active);
     let raf = 0;
     const tick = (t: number) => {
-      const halo = node?.__threeObj?.children[0];
-      if (halo) {
-        const k = (halo.userData["base"] as number) * 1.5 * (1 + 0.12 * Math.sin(t / 280));
-        halo.scale.set(k, k, 1);
+      const neuron = node?.__threeObj;
+      if (neuron?.userData["base"]) {
+        const k = (neuron.userData["base"] as number) * 1.8 * (1 + 0.14 * Math.sin(t / 260));
+        neuron.scale.set(k, k, 1);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -173,9 +175,42 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
   }, [repulsion, distance, data]);
 
   const fitted = useRef(false);
+  const framed = useRef(false);
   useEffect(() => {
     fitted.current = false;
+    framed.current = false;
   }, [data]);
+
+  /**
+   * Enquadra o grafo inteiro. O zoomToFit da biblioteca mede pelos objetos 3D e, com sprites, enxerga só ±1;
+   * aqui a medida vem da posição real das notas.
+   */
+  const frame = (ms: number) => {
+    const g = fg.current;
+    if (!g || !data.nodes.length) return;
+    let cx = 0, cy = 0, cz = 0;
+    for (const n of data.nodes as N[]) { cx += n.x ?? 0; cy += n.y ?? 0; cz += n.z ?? 0; }
+    const k = data.nodes.length;
+    cx /= k; cy /= k; cz /= k;
+    // Raio que cobre 90% das notas: algumas soltas lá longe não deixam o grafo minúsculo.
+    const ds = (data.nodes as N[]).map((n) => Math.hypot((n.x ?? 0) - cx, (n.y ?? 0) - cy, (n.z ?? 0) - cz)).sort((a, b) => a - b);
+    const r = Math.max(30, ds[Math.floor((ds.length - 1) * 0.9)] ?? 30);
+    const cam = g.camera() as unknown as { fov: number; aspect: number };
+    const fov = (Math.min(cam.fov, cam.fov * cam.aspect) * Math.PI) / 180;
+    const dist = (r * 1.05) / Math.sin(fov / 2);
+    g.cameraPosition({ x: cx, y: cy, z: cz + dist }, { x: cx, y: cy, z: cz }, ms);
+  };
+
+  /** Neblina e poeira proporcionais à distância da câmera: o fundo do grafo esmaece um pouco, a frente fica nítida. */
+  const fitSpace = () => {
+    const g = fg.current;
+    if (!g) return;
+    const dist = Math.max(200, g.camera().position.distanceTo((g.controls() as { target: Vector3 }).target));
+    fogDensity.current = 0.4 / dist;
+    const fog = g.scene().fog as FogExp2 | null;
+    if (fog) fog.density = fogDensity.current;
+    space.current?.dust.scale.setScalar(dist * 0.7);
+  };
 
   const flyTo = (n: N) => {
     const g = fg.current;
@@ -188,51 +223,43 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
   const selectedTitle = selected ? nodes.find((n) => n.id === selected)?.title : null;
 
   return (
-    <div ref={wrap} className="relative h-full w-full">
+    <div ref={wrap} className="relative h-full w-full" style={{ background: SPACE.background }}>
       <ForceGraph3D<GNode, GLink>
         ref={fg}
         width={size.w}
         height={size.h}
         graphData={data}
-        backgroundColor={colors.bg || "#1e1e1e"}
+        backgroundColor="rgba(0,0,0,0)"
         showNavInfo={false}
         controlType="orbit"
+        // Layout pré-calculado antes do 1º quadro e enquadrado já no começo: nunca abre com a câmera dentro do grafo.
+        warmupTicks={big ? 40 : 80}
+        onEngineTick={() => {
+          if (framed.current || !fg.current) return;
+          framed.current = true;
+          frame(0);
+          fitSpace();
+        }}
         cooldownTicks={big ? 120 : 250}
         cooldownTime={big ? 6000 : 12000}
         onEngineStop={() => {
           applyHalos.current();
           if (fitted.current || !fg.current) return;
           fitted.current = true;
-          fg.current.zoomToFit(reduced ? 0 : 1200, 60);
-          // Neblina proporcional à distância da câmera: o fundo do grafo esmaece um pouco, a frente fica nítida.
-          setTimeout(() => {
-            const g = fg.current;
-            const fog = g?.scene().fog as FogExp2 | null | undefined;
-            if (!g || !fog) return;
-            fogDensity.current = 0.4 / Math.max(200, g.camera().position.length());
-            fog.density = fogDensity.current;
-          }, reduced ? 0 : 1300);
+          frame(reduced ? 0 : 1200);
+          setTimeout(fitSpace, reduced ? 0 : 1300);
         }}
         nodeRelSize={4}
-        nodeResolution={big ? 8 : 18}
         nodeVal={(n) => 1 + Math.sqrt(n.degree) * 1.8}
-        nodeColor={(n) => {
-          const id = n.id as string;
-          if (dim(id)) return "rgba(120,120,130,0.18)";
-          return id === active ? colors.primary : (colors[n.type] ?? colors.label);
-        }}
-        nodeOpacity={0.95}
-        nodeThreeObject={nodeHalo}
-        nodeThreeObjectExtend
+        nodeThreeObject={nodeNeuron}
         nodeLabel={(n) => n.title}
-        linkColor={(l) => (isActiveLink(l) ? colors.primary : l.suggested ? colors.sugg : colors.link)}
-        linkOpacity={active ? 0.55 : 0.3}
-        linkWidth={(l) => (isActiveLink(l) ? 1.4 : 0)}
-        linkVisibility={(l) => !activeSet || (activeSet.has(endId(l.source)) && activeSet.has(endId(l.target)))}
-        linkDirectionalParticles={(l) => (reduced ? 0 : isActiveLink(l) ? 4 : !active && !big && nodes.length < 400 && !l.suggested ? 1 : 0)}
-        linkDirectionalParticleSpeed={(l) => (isActiveLink(l) ? 0.012 : 0.004)}
-        linkDirectionalParticleWidth={(l) => (isActiveLink(l) ? 2.2 : 1.2)}
-        linkDirectionalParticleColor={() => colors.primary}
+        linkMaterial={(l) => (isActiveLink(l) ? LINK_MATERIALS.active : active ? LINK_MATERIALS.dim : l.suggested ? LINK_MATERIALS.suggested : LINK_MATERIALS.normal)}
+        linkWidth={0}
+        linkDirectionalParticles={(l) => (reduced ? 0 : isActiveLink(l) ? 5 : !active && !big && nodes.length < 400 && !l.suggested ? 1 : 0)}
+        linkDirectionalParticleSpeed={(l) => (isActiveLink(l) ? 0.014 : 0.0045)}
+        linkDirectionalParticleWidth={(l) => (isActiveLink(l) ? 2.4 : 1.3)}
+        linkDirectionalParticleResolution={6}
+        linkDirectionalParticleColor={(l) => (isActiveLink(l) ? SPACE.gold : SPACE.spark)}
         onNodeHover={(n) => {
           if (window.matchMedia("(hover: none)").matches) return;
           setHover(n ? (n.id as string) : null);

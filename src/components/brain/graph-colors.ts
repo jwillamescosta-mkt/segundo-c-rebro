@@ -40,11 +40,3 @@ export function useGraphColors(rgb = false) {
   }, [rgb]);
   return colors;
 }
-
-/** O fundo do tema é escuro? (o brilho do 3D é forte no escuro e suave no claro) */
-export function isDarkColor(rgb: string) {
-  const m = rgb.match(/\d+/g);
-  if (!m || m.length < 3) return true;
-  const [r, g, b] = m.map(Number) as [number, number, number];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128;
-}

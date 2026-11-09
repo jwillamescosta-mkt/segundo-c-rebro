@@ -7,6 +7,8 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { Color } from "three";
+import { luminous, spherePoints } from "@/components/brain/space-scene";
 import { isSmartPending, shouldAutoRun, withSmart } from "@/lib/smart-utils";
 import { audioMime, describeError } from "@/lib/audio-utils";
 import { buildChildContent, cleanRefs, cleanTopics, profileForPrompt, sanitizeWikilinks } from "@/lib/split-utils";
@@ -22,6 +24,22 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("cena do grafo 3D", () => {
+  it("pontos ficam dentro da casca pedida e são sempre os mesmos (sem piscar entre renders)", () => {
+    const a = spherePoints(500, 100, 200, 3);
+    for (let i = 0; i < 500; i++) {
+      const r = Math.hypot(a[i * 3]!, a[i * 3 + 1]!, a[i * 3 + 2]!);
+      expect(r).toBeGreaterThanOrEqual(99.99);
+      expect(r).toBeLessThanOrEqual(200.01);
+    }
+    expect(spherePoints(500, 100, 200, 3)).toEqual(a);
+  });
+  it("cor luminosa mistura com branco e aguenta cor vazia", () => {
+    expect(luminous("#000000", 0.5).getHexString()).toBe(new Color("#000000").lerp(new Color("#ffffff"), 0.5).getHexString());
+    expect(luminous("").getHexString()).toHaveLength(6);
+  });
+});
 
 describe("lote inteligente", () => {
   const n = (over: Record<string, unknown> = {}) => ({ entities: { smart_pass: "pendente" }, status: "pronta", type: "ideia", ...over });

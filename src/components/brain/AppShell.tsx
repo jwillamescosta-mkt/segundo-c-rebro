@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { BrainCircuit, CalendarDays, Mic, Network, NotebookText, Plus, X, Loader2 } from "lucide-react";
+import { BrainCircuit, CalendarDays, Home, Network, NotebookText, Plus, X, Loader2 } from "lucide-react";
 import { MotionConfig, motion } from "motion/react";
 import { EASE } from "./motion";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -68,27 +68,53 @@ function CaptureDialog() {
   );
 }
 
+const NAV_LEFT = [
+  { to: "/inicio" as const, label: "Início", icon: Home },
+  { to: "/notas" as const, label: "Notas", icon: NotebookText },
+  { to: "/grafo" as const, label: "Grafo", icon: Network },
+];
+const NAV_RIGHT = [
+  { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },
+  { to: "/agenda" as const, label: "Agenda", icon: CalendarDays },
+];
+
+/** Dock flutuante: vidro fosco, pílula que desliza até a aba ativa e o botão de captura no centro. */
 function MobileNav() {
-  const items = [
-    { to: "/inicio" as const, label: "Capturar", icon: Mic },
-    { to: "/notas" as const, label: "Notas", icon: NotebookText },
-    { to: "/grafo" as const, label: "Grafo", icon: Network },
-    { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },
-    { to: "/agenda" as const, label: "Agenda", icon: CalendarDays },
-  ];
+  const { setCaptureOpen } = useApp();
+  const path = useLocation().pathname;
+  const item = (i: (typeof NAV_LEFT)[number] | (typeof NAV_RIGHT)[number]) => {
+    const active = path === i.to || (i.to === "/notas" && path.startsWith("/nota/"));
+    return (
+      <Link key={i.to} to={i.to} aria-current={active ? "page" : undefined} className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px]">
+        {active && (
+          <motion.span layoutId="dock-pill" className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-primary/15" transition={{ type: "spring", stiffness: 500, damping: 38 }} />
+        )}
+        <motion.span animate={{ y: active ? -1 : 0, scale: active ? 1.1 : 1 }} transition={{ type: "spring", stiffness: 500, damping: 25 }} className="relative">
+          <i.icon className={cn("size-5", active ? "text-primary" : "text-muted-foreground")} strokeWidth={active ? 2.2 : 1.75} />
+        </motion.span>
+        <span className={cn("relative", active ? "font-medium text-primary" : "text-muted-foreground")}>{i.label}</span>
+      </Link>
+    );
+  };
   return (
-    <nav className="grid shrink-0 grid-cols-5 border-t bg-panel pb-[env(safe-area-inset-bottom)]">
-      {items.map((i) => (
-        <Link
-          key={i.to}
-          to={i.to}
-          className="flex flex-col items-center gap-0.5 py-2 text-[11px] text-muted-foreground"
-          activeProps={{ className: "text-primary" }}
-        >
-          <i.icon className="size-5" strokeWidth={1.75} />
-          {i.label}
-        </Link>
-      ))}
+    <nav aria-label="Navegação principal" className="shrink-0 px-3 pt-1 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <div className="relative flex items-center rounded-2xl border bg-panel/80 px-1 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        {NAV_LEFT.map(item)}
+        <div className="flex w-16 shrink-0 justify-center">
+          <motion.button
+            onClick={() => setCaptureOpen(true)}
+            aria-label="Nova captura"
+            whileTap={{ scale: 0.9 }}
+            whileHover={{ rotate: 90 }}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
+            className="-mt-6 flex size-13 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-4 ring-background"
+            style={{ boxShadow: "0 8px 24px -6px color-mix(in oklab, var(--primary) 70%, transparent)" }}
+          >
+            <Plus className="size-6" />
+          </motion.button>
+        </div>
+        {NAV_RIGHT.map(item)}
+      </div>
     </nav>
   );
 }
@@ -126,7 +152,7 @@ function Shell({ children }: { children: ReactNode }) {
       onClick={() => setCaptureOpen(true)}
       className={cn(
         "fixed z-40 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90",
-        isMobile ? "bottom-20 right-4" : "bottom-6 right-6",
+        "bottom-6 right-6",
       )}
       aria-label="Nova captura"
       title="Nova captura"
@@ -146,7 +172,6 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="flex h-[100dvh] flex-col bg-background">
         <main className="min-h-0 flex-1 overflow-y-auto">{page}</main>
         <MobileNav />
-        {fab}
         <CaptureDialog />
         <CommandPalette />
       </div>

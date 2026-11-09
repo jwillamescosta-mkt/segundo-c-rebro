@@ -4,7 +4,8 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { eventsQuery, linksQuery, notesQuery, tasksQuery, type Link, type Note, type NoteMeta } from "@/lib/brain";
+import { eventsQuery, invalidateBrain, linksQuery, notesQuery, tasksQuery, type Link, type Note, type NoteMeta } from "@/lib/brain";
+import { ensureRulesNote } from "@/lib/rules-note";
 import { processNote } from "@/lib/process.functions";
 
 interface Ctx {
@@ -139,6 +140,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(ch);
     };
+  }, [qc]);
+
+  // Garante a nota fixada "Regras do meu cérebro" (idempotente) e atualiza a lista se ela foi criada.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      ensureRulesNote(supabase, data.user.id).then((created) => created && invalidateBrain(qc));
+    });
   }, [qc]);
 
   // Ctrl/Cmd+K

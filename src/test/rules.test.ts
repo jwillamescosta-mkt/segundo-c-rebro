@@ -7,6 +7,7 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { audioMime, describeError } from "@/lib/audio-utils";
 import { buildChildContent, cleanRefs, cleanTopics, profileForPrompt, sanitizeWikilinks } from "@/lib/split-utils";
 import { goalPace, goalProgress, krProgress } from "@/lib/goals-utils";
 import { BRIEFING_HEADING, demoteHeadings, upsertBriefing } from "@/lib/briefing-utils";
@@ -20,6 +21,19 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("áudio", () => {
+  it("MIME por extensão: iPhone m4a e webm do navegador", () => {
+    expect([audioMime("m4a"), audioMime("MP3"), audioMime("weba"), audioMime("wav"), audioMime("xyz")]).toEqual([
+      "audio/mp4", "audio/mpeg", "audio/webm", "audio/wav", "audio/mpeg",
+    ]);
+  });
+  it("descreve o erro do gateway de forma curta, com código e status", () => {
+    expect(describeError({ code: "request_rejected", httpStatus: 400, message: "formato  não\nsuportado" })).toBe("request_rejected 400: formato não suportado");
+    expect(describeError(new Error("falhou"))).toBe("falhou");
+    expect(describeError(null)).toBe("erro desconhecido");
+  });
+});
 
 describe("separar capturas em pontos", () => {
   const t = (title: string, confidence = 0.9, type = "ideia") => ({ title, type, summary: "s", content: `texto ${title}`, tags: ["#A"], confidence });

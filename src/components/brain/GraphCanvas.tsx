@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject, type LinkObject } from "react-force-graph-2d";
 import { useReducedMotion } from "motion/react";
-import { cssVar } from "./type-meta";
+import { useGraphColors } from "./graph-colors";
 
 function easeOutBack(x: number) {
   const c = 1.70158;
@@ -34,9 +34,6 @@ interface Props {
   compact?: boolean;
 }
 
-type Colors = Record<string, string> & { bg: string; link: string; sugg: string; label: string; primary: string };
-const NO_COLORS: Colors = { bg: "", link: "", sugg: "", label: "", primary: "" };
-
 function endId(x: unknown) {
   return typeof x === "object" && x ? (x as N).id : (x as string);
 }
@@ -46,7 +43,7 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
   const fg = useRef<ForceGraphMethods<N, L> | undefined>(undefined);
   const [size, setSize] = useState({ w: 300, h: 300 });
   const [hover, setHover] = useState<string | null>(null);
-  const [colors, setColors] = useState<Colors>(NO_COLORS);
+  const colors = useGraphColors();
 
   useEffect(() => {
     const el = wrap.current;
@@ -56,23 +53,7 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    const read = () => {
-      const c: Colors = { ...NO_COLORS };
-      for (const t of ["ideia", "tarefa", "cliente", "projeto", "conteudo", "pessoa", "referencia", "diario", "aprendizado"])
-        c[t] = cssVar(`--type-${t}`);
-      c.bg = cssVar("--graph-bg");
-      c.link = cssVar("--graph-link");
-      c.sugg = cssVar("--graph-link-suggested");
-      c.label = cssVar("--graph-label");
-      c.primary = cssVar("--primary");
-      setColors(c);
-    };
-    read();
-    const mo = new MutationObserver(read);
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => mo.disconnect();
-  }, []);
+
 
   // stable graph data object (keeps positions across renders)
   const data = useMemo(() => ({ nodes: nodes.map((n) => ({ ...n })), links: links.map((l) => ({ ...l })) }), [nodes, links]);

@@ -3,8 +3,20 @@ import { Loader2 } from "lucide-react";
 import type GraphCanvasT from "./GraphCanvas";
 
 const GraphCanvas = lazy(() => import("./GraphCanvas"));
+// O 3D (three.js) só é baixado quando alguém abre o grafo em 3D.
+const GraphCanvas3D = lazy(() => import("./GraphCanvas3D"));
 
-export function LazyGraph(props: ComponentProps<typeof GraphCanvasT>) {
+/** O aparelho consegue desenhar em 3D (WebGL)? */
+export function canUse3D() {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") || c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+export function LazyGraph({ dimension = "2d", ...props }: ComponentProps<typeof GraphCanvasT> & { dimension?: "2d" | "3d" }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const fallback = (
@@ -15,7 +27,7 @@ export function LazyGraph(props: ComponentProps<typeof GraphCanvasT>) {
   if (!mounted) return fallback;
   return (
     <Suspense fallback={fallback}>
-      <GraphCanvas {...props} />
+      {dimension === "3d" && canUse3D() ? <GraphCanvas3D {...props} /> : <GraphCanvas {...props} />}
     </Suspense>
   );
 }

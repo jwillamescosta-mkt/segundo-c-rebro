@@ -1,12 +1,13 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useBrain } from "@/components/brain/app-context";
-import { LazyGraph } from "@/components/brain/LazyGraph";
+import { LazyGraph, canUse3D } from "@/components/brain/LazyGraph";
 import { useSynthesize } from "@/components/brain/SynthesisBox";
 import { Layers, Loader2, Minimize2, SlidersHorizontal } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 
 const PANEL_KEY = "sc-grafo-filtros";
+const DIM_KEY = "sc-grafo-dimensao";
 import { TypeDot } from "@/components/brain/type-meta";
 import { NOTE_TYPES } from "@/lib/markdown-utils";
 import { buildGraph } from "@/lib/graph-data";
@@ -36,6 +37,25 @@ function GraphPage() {
   const toggle = (t: string) => setTypes((s) => { const n = new Set(s ?? NOTE_TYPES.map((x) => x.value)); if (n.has(t)) n.delete(t); else n.add(t); return n; });
   // Painel de filtros recolhível; a escolha fica salva neste navegador.
   const [open, setOpen] = useState(true);
+  // 3D por padrão quando o aparelho suporta; a escolha fica salva neste navegador.
+  const [dim, setDim] = useState<"2d" | "3d">("2d");
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(DIM_KEY);
+    } catch {
+      /* sem armazenamento */
+    }
+    setDim(saved === "2d" || !canUse3D() ? "2d" : "3d");
+  }, []);
+  const pickDim = (v: "2d" | "3d") => {
+    setDim(v);
+    try {
+      localStorage.setItem(DIM_KEY, v);
+    } catch {
+      /* ignora */
+    }
+  };
   useEffect(() => {
     try {
       const saved = localStorage.getItem(PANEL_KEY);
@@ -56,7 +76,15 @@ function GraphPage() {
 
   return (
     <div className="relative h-full min-h-[70vh]">
-      <LazyGraph nodes={g.nodes} links={g.links} highlight={highlight} repulsion={rep} distance={dist} onNodeClick={(id) => navigate({ to: "/nota/$id", params: { id } })} />
+      <LazyGraph dimension={dim} nodes={g.nodes} links={g.links} highlight={highlight} repulsion={rep} distance={dist} onNodeClick={(id) => navigate({ to: "/nota/$id", params: { id } })} />
+      <div role="group" aria-label="Visualização do grafo" className="absolute right-3 top-3 z-10 flex rounded-full border bg-panel/90 p-0.5 text-xs shadow-sm backdrop-blur">
+        {(["2d", "3d"] as const).map((v) => (
+          <button key={v} onClick={() => pickDim(v)} aria-pressed={dim === v} className={cn("relative rounded-full px-3 py-1 font-medium uppercase", dim === v ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
+            {dim === v && <motion.span layoutId="grafo-dim" className="absolute inset-0 rounded-full bg-primary" transition={{ type: "spring", stiffness: 500, damping: 36 }} />}
+            <span className="relative">{v}</span>
+          </button>
+        ))}
+      </div>
       <AnimatePresence initial={false} mode="wait">
         {!open ? (
           <motion.button

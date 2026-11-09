@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { eventsQuery, linksQuery, notesQuery, tasksQuery, type Link, type Note } from "@/lib/brain";
+import { eventsQuery, linksQuery, notesQuery, tasksQuery, type Link, type Note, type NoteMeta } from "@/lib/brain";
 import { processNote } from "@/lib/process.functions";
 
 interface Ctx {
@@ -54,7 +54,7 @@ export function neighborsOf(id: string, links: Link[], includeSuggested = false)
   return s;
 }
 
-export function orphanNotes(notes: Note[], links: Link[]) {
+export function orphanNotes<T extends Pick<Note, "id" | "type">>(notes: T[], links: Link[]) {
   const linked = new Set<string>();
   for (const l of links) {
     if (l.status !== "aceita") continue;
@@ -120,8 +120,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .channel(`brain-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notes" }, (p) => {
         if (p.eventType === "UPDATE") {
-          const row = p.new as Note;
-          qc.setQueryData<Note[]>(["notes"], (old) => old?.map((n) => (n.id === row.id ? { ...n, ...row } : n)));
+          const row = p.new as Note & { search_vector?: unknown; user_id?: string };
+          const { content, search_vector: _sv, user_id: _u, ...meta } = row;
+          qc.setQueryData<NoteMeta[]>(["notes"], (old) => old?.map((n) => (n.id === row.id ? { ...n, ...meta } : n)));
+          qc.setQueryData<Note | null>(["note", row.id], (old) => (old ? { ...old, ...meta, content: content ?? old.content } : old));
         } else qc.invalidateQueries({ queryKey: ["notes"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "links" }, () =>
@@ -153,7 +155,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const runProcess = useCallback(
     async (noteId: string, mode: "full" | "reanalyze" = "full") => {
-      qc.setQueryData<Note[]>(["notes"], (old) =>
+      qc.setQueryData<NoteMeta[]>(["notes"], (old) =>
         old?.map((n) => (n.id === noteId ? { ...n, status: "processando", progress: "Na fila…" } : n)),
       );
       try {
@@ -166,6 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         qc.invalidateQueries({ queryKey: ["links"] });
         qc.invalidateQueries({ queryKey: ["tasks"] });
         qc.invalidateQueries({ queryKey: ["events"] });
+        qc.invalidateQueries({ queryKey: ["note", noteId] });
       }
     },
     [process, qc],

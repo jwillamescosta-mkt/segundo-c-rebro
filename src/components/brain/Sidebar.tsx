@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { NOTE_TYPES, safeHeadline } from "@/lib/markdown-utils";
-import { getOrCreateDaily, type Note } from "@/lib/brain";
+import { getOrCreateDaily, type NoteMeta as Note } from "@/lib/brain";
 import { exportVault } from "@/lib/export";
 import { useApp, useBrain } from "./app-context";
 import { TypeIcon } from "./type-meta";
@@ -118,6 +118,8 @@ export function Sidebar() {
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Com milhares de notas, cada grupo mostra um pedaço por vez.
+  const [shown, setShown] = useState<Record<string, number>>({});
   const { hits, loading: searching } = useFullTextSearch(q);
   const [exporting, setExporting] = useState(false);
 
@@ -256,9 +258,17 @@ export function Sidebar() {
                 </button>
                 {!collapsed[g.value] && (
                   <div className="ml-3 border-l pl-1">
-                    {g.items.map((n) => (
+                    {g.items.slice(0, shown[g.value] ?? 50).map((n) => (
                       <NoteRow key={n.id} n={n} active={params.id === n.id} />
                     ))}
+                    {g.items.length > (shown[g.value] ?? 50) && (
+                      <button
+                        onClick={() => setShown((s) => ({ ...s, [g.value]: (s[g.value] ?? 50) + 200 }))}
+                        className="w-full rounded px-2 py-1 text-left text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      >
+                        Mostrar mais ({g.items.length - (shown[g.value] ?? 50)})
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -295,7 +305,7 @@ export function Sidebar() {
           onClick={async () => {
             setExporting(true);
             try {
-              await exportVault(notes, links, tasks, events);
+              await exportVault(links, tasks, events);
               toast.success("Exportação pronta: abra a pasta no Obsidian.");
             } catch {
               toast.error("Falha ao exportar.");

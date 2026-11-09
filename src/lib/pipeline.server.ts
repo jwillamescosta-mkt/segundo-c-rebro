@@ -404,13 +404,27 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
       .limit(1000);
     const myWords = words(`${title} ${analysis.summary} ${content.slice(0, 4000)}`);
     const myTags = new Set(tags);
-    const scored = (others ?? []).map((o, i) => {
+    // Com muitas notas, as 1000 recentes não bastam: a busca de texto completo traz candidatas de todo o histórico.
+    const pool = [...(others ?? [])];
+    const ftsIds = new Set<string>();
+    const terms = [...new Set([...tags, ...words(title)])].slice(0, 12);
+    if (terms.length) {
+      const { data: hits } = await db.rpc("search_notes", { q: terms.join(" or ") });
+      const known = new Set(pool.map((o) => o.id));
+      const missing = (hits ?? []).map((h) => h.id).filter((id) => id !== noteId && !known.has(id));
+      (hits ?? []).forEach((h) => ftsIds.add(h.id));
+      if (missing.length) {
+        const { data: extra } = await db.from("notes").select("id,title,summary,tags,content,updated_at").in("id", missing);
+        pool.push(...(extra ?? []));
+      }
+    }
+    const scored = pool.map((o, i) => {
       const ot = o.tags ?? [];
       const tagScore = ot.filter((t) => myTags.has(t)).length * 3;
       const ow = words(`${o.title} ${o.summary ?? ""} ${(o.content ?? "").slice(0, 600)}`);
       let w = 0;
       for (const x of ow) if (myWords.has(x)) w++;
-      return { o, score: tagScore + Math.min(w, 15) + (i < 30 ? 1 : 0) };
+      return { o, score: tagScore + Math.min(w, 15) + (i < 30 ? 1 : 0) + (ftsIds.has(o.id) ? 4 : 0) };
     });
     const candidates = scored.sort((a, b) => b.score - a.score).slice(0, 150).map((s) => s.o);
 

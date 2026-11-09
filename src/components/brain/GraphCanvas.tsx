@@ -114,6 +114,9 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
     fitted.current = false;
   }, [data]);
   const glow = !reduced && nodes.length < 400; // shadowBlur custa caro em grafos grandes
+  // Grafos grandes: sem pulsos em repouso e sem redesenho contínuo, só quando há uma nota em foco.
+  const big = nodes.length > 1500;
+  const calm = !!reduced || (big && !active);
 
   return (
     <div ref={wrap} className="h-full w-full">
@@ -124,7 +127,8 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
         graphData={data}
         backgroundColor={colors.bg}
         cooldownTicks={compact ? 120 : 300}
-        autoPauseRedraw={!!reduced}
+        cooldownTime={big ? 6000 : 15000}
+        autoPauseRedraw={calm}
         onEngineStop={() => {
           if (fitted.current || !fg.current) return;
           fitted.current = true;
@@ -144,7 +148,7 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
         linkWidth={(l) => (isActiveLink(l) ? 1.8 : 0.8)}
         linkCurvature={0.12}
         // "Sinapses": pulsos que viajam pelas ligações; mais rápidos e intensos no nó em foco.
-        linkDirectionalParticles={(l) => (reduced ? 0 : isActiveLink(l) ? 4 : activeSet || l.suggested ? 0 : 1)}
+        linkDirectionalParticles={(l) => (reduced ? 0 : isActiveLink(l) ? 4 : activeSet || l.suggested || big ? 0 : 1)}
         linkDirectionalParticleSpeed={(l) => (isActiveLink(l) ? 0.014 : 0.004)}
         linkDirectionalParticleWidth={(l) => (isActiveLink(l) ? 3 : 1.6)}
         linkDirectionalParticleColor={() => colors.primary}

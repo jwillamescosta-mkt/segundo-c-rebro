@@ -1,12 +1,12 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, Copy, Link2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { createManualLink, setLinkStatus, setSharing, setTaskDone, updateNote, type Note } from "@/lib/brain";
+import { createManualLink, fetchContents, findMentions, setLinkStatus, setSharing, setTaskDone, updateNote, type NoteMeta } from "@/lib/brain";
 import { NOTE_TYPES, mergeTags, normalizeTitle } from "@/lib/markdown-utils";
 import { formatDateBR } from "@/lib/tasks-utils";
 import { localNeighborhood, buildGraph } from "@/lib/graph-data";
@@ -50,7 +50,7 @@ export function RightPanel() {
   return <NoteSidePanel note={note} />;
 }
 
-function NoteSidePanel({ note }: { note: Note }) {
+function NoteSidePanel({ note }: { note: NoteMeta }) {
   const { notes, links, tasks, byId } = useBrain();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -62,14 +62,21 @@ function NoteSidePanel({ note }: { note: Note }) {
   const accepted = mine.filter((l) => l.status === "aceita");
   const backlinks = links.filter((l) => l.target_note_id === note.id && l.status === "aceita");
   const linkedIds = new Set(mine.map((l) => (l.source_note_id === note.id ? l.target_note_id : l.source_note_id)));
-  const unlinked = useMemo(() => {
-    if (note.title.length < 3) return [];
-    const t = normalizeTitle(note.title);
-    return notes
-      .filter((n) => n.id !== note.id && !linkedIds.has(n.id) && n.content.toLocaleLowerCase("pt-BR").includes(t))
-      .slice(0, 20);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes, note.id, note.title, mine.length]);
+  // Menções e trechos vêm do servidor: a lista em memória não carrega o conteúdo das notas.
+  const unlinkedQ = useQuery({
+    queryKey: ["mentions", note.id, note.title, mine.length],
+    queryFn: () => findMentions(note.title, [note.id, ...linkedIds]),
+    enabled: note.title.length >= 3,
+    staleTime: 60_000,
+  });
+  const unlinked = unlinkedQ.data ?? [];
+  const backlinkIds = links.filter((l) => l.target_note_id === note.id && l.status === "aceita").map((l) => l.source_note_id);
+  const contents = useQuery({
+    queryKey: ["contents", backlinkIds.join(",")],
+    queryFn: () => fetchContents(backlinkIds.slice(0, 50)),
+    enabled: backlinkIds.length > 0,
+    staleTime: 60_000,
+  }).data;
   const noteTasks = tasks.filter((t) => t.note_id === note.id);
   const local = useMemo(() => {
     const only = localNeighborhood(note.id, links, 2);
@@ -154,7 +161,8 @@ function NoteSidePanel({ note }: { note: Note }) {
             {backlinks.map((l) => {
               const o = byId.get(l.source_note_id);
               if (!o) return null;
-              const snip = snippetAround(o.content, `[[${note.title}`) ?? snippetAround(o.content, note.title) ?? o.summary;
+              const c = contents?.get(o.id) ?? "";
+              const snip = snippetAround(c, `[[${note.title}`) ?? snippetAround(c, note.title) ?? o.summary;
               return (
                 <StaggerItem key={l.id}>
                   <Link to="/nota/$id" params={{ id: o.id }} className="flex items-center gap-1.5 font-medium hover:text-primary">

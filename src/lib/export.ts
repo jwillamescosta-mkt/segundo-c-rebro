@@ -1,9 +1,11 @@
 import JSZip from "jszip";
-import type { CalendarEvent, Link, Note, Task } from "./brain";
+import { fetchAllNotesFull, type CalendarEvent, type Link, type Note, type Task } from "./brain";
 import { noteToMarkdown, sanitizeFilename } from "./markdown-utils";
 import { agendaToMarkdown } from "./tasks-utils";
 
-export async function exportVault(notes: Note[], links: Link[], tasks: Task[] = [], events: CalendarEvent[] = []) {
+export async function exportVault(links: Link[], tasks: Task[] = [], events: CalendarEvent[] = []) {
+  // O conteúdo não fica em memória; busca tudo só na hora de exportar.
+  const notes = await fetchAllNotesFull();
   const zip = new JSZip();
   const folder = zip.folder("Segundo Cérebro")!;
   const byId = new Map(notes.map((n) => [n.id, n]));

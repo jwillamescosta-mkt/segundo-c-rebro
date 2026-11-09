@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Loader2, Pin, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { deleteNote, saveNoteContent, signedUrl, updateNote, type Note } from "@/lib/brain";
+import { deleteNote, noteQuery, saveNoteContent, signedUrl, updateNote, type Note } from "@/lib/brain";
 import { useApp, useBrain } from "@/components/brain/app-context";
 import { Markdown } from "@/components/brain/Markdown";
 import { TypeIcon } from "@/components/brain/type-meta";
@@ -18,9 +18,9 @@ export const Route = createFileRoute("/_app/nota/$id")({
 
 function NotePage() {
   const { id } = Route.useParams();
-  const { byId, loading } = useBrain();
-  const note = byId.get(id);
-  if (loading) return <div className="p-8"><Loader2 className="size-4 animate-spin" /></div>;
+  const full = useQuery(noteQuery(id));
+  const note = full.data;
+  if (full.isLoading) return <div className="p-8"><Loader2 className="size-4 animate-spin" /></div>;
   if (!note) return <div className="p-8 text-sm text-muted-foreground">Nota não encontrada. <Link to="/inicio" className="text-primary">Voltar</Link></div>;
   return <NoteEditor key={note.id} note={note} />;
 }
@@ -68,6 +68,7 @@ function NoteEditor({ note }: { note: Note }) {
         dirty.current = false;
         qc.invalidateQueries({ queryKey: ["links"] });
         qc.invalidateQueries({ queryKey: ["notes"] });
+        qc.setQueryData<Note | null>(["note", note.id], (old) => (old ? { ...old, title, content } : old));
       } catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao salvar."); }
     }, 900);
     return () => clearTimeout(t);
@@ -103,7 +104,7 @@ function NoteEditor({ note }: { note: Note }) {
           {(["editar", "dividir", "ler"] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)} className={cn("rounded px-2 py-0.5 capitalize", mode === m ? "bg-secondary text-foreground" : "hover:text-foreground")}>{m}</button>
           ))}
-          <button title="Fixar" onClick={() => updateNote(note.id, { pinned: !note.pinned }).then(() => qc.invalidateQueries({ queryKey: ["notes"] }))} className={cn("rounded p-1 hover:bg-secondary", note.pinned && "text-primary")}><Pin className="size-3.5" /></button>
+          <button title="Fixar" onClick={() => updateNote(note.id, { pinned: !note.pinned }).then(() => { qc.invalidateQueries({ queryKey: ["notes"] }); qc.invalidateQueries({ queryKey: ["note", note.id] }); })} className={cn("rounded p-1 hover:bg-secondary", note.pinned && "text-primary")}><Pin className="size-3.5" /></button>
           <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" disabled={note.status === "processando"} onClick={() => runProcess(note.id, "reanalyze")}><RefreshCw className="size-3" /> Reanalisar com IA</Button>
           <button title="Excluir" onClick={async () => { if (!confirm("Excluir esta nota?")) return; await deleteNote(note); qc.invalidateQueries({ queryKey: ["notes"] }); navigate({ to: "/inicio" }); }} className="rounded p-1 hover:bg-secondary hover:text-destructive"><Trash2 className="size-3.5" /></button>
         </div>

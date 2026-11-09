@@ -6,12 +6,15 @@ import { syncWikilinks } from "./wikilink-sync";
 import { todayISO, formatDateBR } from "./tasks-utils";
 
 export type Note = Omit<Tables<"notes">, "search_vector" | "user_id">;
+/** Nota sem o conteúdo: é o que fica em memória para a lista toda (o conteúdo pode ter MBs de transcrição). */
+export type NoteMeta = Omit<Note, "content">;
 export type Link = Tables<"links">;
 export type Task = Tables<"tasks">;
 export type CalendarEvent = Tables<"events">;
 
-const NOTE_COLS =
-  "id,title,content,summary,type,tags,source_kind,attachment_path,source_url,og_image,status,progress,error_message,entities,is_shared,share_token,pinned,daily_date,created_at,updated_at";
+const META_COLS =
+  "id,title,summary,type,tags,source_kind,attachment_path,source_url,og_image,status,progress,error_message,entities,is_shared,share_token,pinned,daily_date,created_at,updated_at";
+const NOTE_COLS = `${META_COLS},content`;
 
 async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
   const out: T[] = [];
@@ -27,10 +30,46 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
 export const notesQuery = queryOptions({
   queryKey: ["notes"],
   queryFn: () =>
-    fetchAll<Note>((a, b) =>
-      supabase.from("notes").select(NOTE_COLS).order("updated_at", { ascending: false }).range(a, b) as never,
+    fetchAll<NoteMeta>((a, b) =>
+      supabase.from("notes").select(META_COLS).order("updated_at", { ascending: false }).range(a, b) as never,
     ),
 });
+
+/** Nota completa (com conteúdo), carregada só quando aberta. */
+export const noteQuery = (id: string) =>
+  queryOptions({
+    queryKey: ["note", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("notes").select(NOTE_COLS).eq("id", id).maybeSingle();
+      if (error) throw error;
+      return data as Note | null;
+    },
+  });
+
+/** Todas as notas com conteúdo, para exportar. */
+export function fetchAllNotesFull() {
+  return fetchAll<Note>((a, b) => supabase.from("notes").select(NOTE_COLS).order("updated_at", { ascending: false }).range(a, b) as never);
+}
+
+/** Conteúdo de algumas notas (trechos de backlinks). */
+export async function fetchContents(ids: string[]) {
+  const out = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await supabase.from("notes").select("id,content").in("id", ids.slice(i, i + 200));
+    if (error) throw error;
+    for (const r of data ?? []) out.set(r.id, r.content);
+  }
+  return out;
+}
+
+/** Notas que citam um texto mas ainda não estão ligadas (busca no servidor, não na memória). */
+export async function findMentions(text: string, excludeIds: string[], limit = 20) {
+  const pattern = `%${text.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const { data, error } = await supabase.from("notes").select("id,title,type,content").ilike("content", pattern).limit(limit + excludeIds.length);
+  if (error) throw error;
+  const skip = new Set(excludeIds);
+  return (data ?? []).filter((n) => !skip.has(n.id)).slice(0, limit);
+}
 
 export const linksQuery = queryOptions({
   queryKey: ["links"],
@@ -97,7 +136,7 @@ export async function updateNote(id: string, patch: Partial<Note>) {
   if (error) throw error;
 }
 
-export async function deleteNote(note: Note) {
+export async function deleteNote(note: Pick<Note, "id" | "attachment_path">) {
   if (note.attachment_path) await supabase.storage.from("anexos").remove([note.attachment_path]);
   const { error } = await supabase.from("notes").delete().eq("id", note.id);
   if (error) throw error;
@@ -124,7 +163,7 @@ export async function setTaskDone(id: string, done: boolean) {
   if (error) throw error;
 }
 
-export async function getOrCreateDaily(notes: Note[]) {
+export async function getOrCreateDaily(notes: NoteMeta[]) {
   const today = todayISO();
   const found = notes.find((n) => n.daily_date === today);
   if (found) return found;
@@ -140,7 +179,7 @@ export async function getOrCreateDaily(notes: Note[]) {
   });
 }
 
-export async function setSharing(note: Note, on: boolean) {
+export async function setSharing(note: Pick<Note, "id" | "share_token">, on: boolean) {
   const token = on ? (note.share_token ?? crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().slice(0, 8)) : note.share_token;
   await updateNote(note.id, { is_shared: on, share_token: on ? token : null });
   return token;

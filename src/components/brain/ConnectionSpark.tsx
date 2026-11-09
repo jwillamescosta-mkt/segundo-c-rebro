@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { motion, useReducedMotion } from "motion/react";
-import type { Note } from "@/lib/brain";
+import type { NoteMeta as Note } from "@/lib/brain";
 import { TypeIcon } from "./type-meta";
 import { EASE } from "./motion";
 

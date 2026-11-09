@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
+import { Route as AppAtalhosRouteImport } from './routes/_app/atalhos'
 import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilhadas'
 import { Route as AppEstudarRouteImport } from './routes/_app/estudar'
 import { Route as AppGrafoRouteImport } from './routes/_app/grafo'
@@ -21,6 +22,7 @@ import { Route as AppMetasRouteImport } from './routes/_app/metas'
 import { Route as AppNotasRouteImport } from './routes/_app/notas'
 import { Route as AppPerguntarRouteImport } from './routes/_app/perguntar'
 import { Route as AppTarefasRouteImport } from './routes/_app/tarefas'
+import { Route as ApiCapturarRouteImport } from './routes/api/capturar'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as AppNotaIdRouteImport } from './routes/_app/nota.$id'
 
@@ -41,6 +43,11 @@ const EntrarRoute = EntrarRouteImport.update({
 const AppAgendaRoute = AppAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAtalhosRoute = AppAtalhosRouteImport.update({
+  id: '/atalhos',
+  path: '/atalhos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCompartilhadasRoute = AppCompartilhadasRouteImport.update({
@@ -83,6 +90,11 @@ const AppTarefasRoute = AppTarefasRouteImport.update({
   path: '/tarefas',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiCapturarRoute = ApiCapturarRouteImport.update({
+  id: '/api/capturar',
+  path: '/api/capturar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const STokenRoute = STokenRouteImport.update({
   id: '/s/$token',
   path: '/s/$token',
@@ -98,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
   '/agenda': typeof AppAgendaRoute
+  '/atalhos': typeof AppAtalhosRoute
   '/compartilhadas': typeof AppCompartilhadasRoute
   '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
@@ -106,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/notas': typeof AppNotasRoute
   '/perguntar': typeof AppPerguntarRoute
   '/tarefas': typeof AppTarefasRoute
+  '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
   '/nota/$id': typeof AppNotaIdRoute
 }
@@ -113,6 +127,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
   '/agenda': typeof AppAgendaRoute
+  '/atalhos': typeof AppAtalhosRoute
   '/compartilhadas': typeof AppCompartilhadasRoute
   '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
@@ -121,6 +136,7 @@ export interface FileRoutesByTo {
   '/notas': typeof AppNotasRoute
   '/perguntar': typeof AppPerguntarRoute
   '/tarefas': typeof AppTarefasRoute
+  '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
   '/nota/$id': typeof AppNotaIdRoute
 }
@@ -130,6 +146,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/entrar': typeof EntrarRoute
   '/_app/agenda': typeof AppAgendaRoute
+  '/_app/atalhos': typeof AppAtalhosRoute
   '/_app/compartilhadas': typeof AppCompartilhadasRoute
   '/_app/estudar': typeof AppEstudarRoute
   '/_app/grafo': typeof AppGrafoRoute
@@ -138,6 +155,7 @@ export interface FileRoutesById {
   '/_app/notas': typeof AppNotasRoute
   '/_app/perguntar': typeof AppPerguntarRoute
   '/_app/tarefas': typeof AppTarefasRoute
+  '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
   '/_app/nota/$id': typeof AppNotaIdRoute
 }
@@ -147,6 +165,7 @@ export interface FileRouteTypes {
     | '/'
     | '/entrar'
     | '/agenda'
+    | '/atalhos'
     | '/compartilhadas'
     | '/estudar'
     | '/grafo'
@@ -155,6 +174,7 @@ export interface FileRouteTypes {
     | '/notas'
     | '/perguntar'
     | '/tarefas'
+    | '/api/capturar'
     | '/s/$token'
     | '/nota/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -162,6 +182,7 @@ export interface FileRouteTypes {
     | '/'
     | '/entrar'
     | '/agenda'
+    | '/atalhos'
     | '/compartilhadas'
     | '/estudar'
     | '/grafo'
@@ -170,6 +191,7 @@ export interface FileRouteTypes {
     | '/notas'
     | '/perguntar'
     | '/tarefas'
+    | '/api/capturar'
     | '/s/$token'
     | '/nota/$id'
   id:
@@ -178,6 +200,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/entrar'
     | '/_app/agenda'
+    | '/_app/atalhos'
     | '/_app/compartilhadas'
     | '/_app/estudar'
     | '/_app/grafo'
@@ -186,6 +209,7 @@ export interface FileRouteTypes {
     | '/_app/notas'
     | '/_app/perguntar'
     | '/_app/tarefas'
+    | '/api/capturar'
     | '/s/$token'
     | '/_app/nota/$id'
   fileRoutesById: FileRoutesById
@@ -194,6 +218,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  ApiCapturarRoute: typeof ApiCapturarRoute
   STokenRoute: typeof STokenRoute
 }
 
@@ -225,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/agenda'
       fullPath: '/agenda'
       preLoaderRoute: typeof AppAgendaRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/atalhos': {
+      id: '/_app/atalhos'
+      path: '/atalhos'
+      fullPath: '/atalhos'
+      preLoaderRoute: typeof AppAtalhosRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/compartilhadas': {
@@ -283,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTarefasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/capturar': {
+      id: '/api/capturar'
+      path: '/api/capturar'
+      fullPath: '/api/capturar'
+      preLoaderRoute: typeof ApiCapturarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/s/$token': {
       id: '/s/$token'
       path: '/s/$token'
@@ -302,6 +341,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAgendaRoute: typeof AppAgendaRoute
+  AppAtalhosRoute: typeof AppAtalhosRoute
   AppCompartilhadasRoute: typeof AppCompartilhadasRoute
   AppEstudarRoute: typeof AppEstudarRoute
   AppGrafoRoute: typeof AppGrafoRoute
@@ -315,6 +355,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAgendaRoute: AppAgendaRoute,
+  AppAtalhosRoute: AppAtalhosRoute,
   AppCompartilhadasRoute: AppCompartilhadasRoute,
   AppEstudarRoute: AppEstudarRoute,
   AppGrafoRoute: AppGrafoRoute,
@@ -332,6 +373,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  ApiCapturarRoute: ApiCapturarRoute,
   STokenRoute: STokenRoute,
 }
 export const routeTree = rootRouteImport

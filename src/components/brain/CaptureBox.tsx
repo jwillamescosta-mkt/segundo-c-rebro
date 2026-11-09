@@ -3,31 +3,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FileUp, Link2, Loader2, Mic, Paperclip, Send, Square, X, Image as ImageIcon, FileText, AudioLines } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { createNote, currentUserId, LIMITS, type Note } from "@/lib/brain";
+import { LIMITS, type Note } from "@/lib/brain";
+import { isNetworkError, kindOf, saveCapture } from "@/lib/capture-client";
+import { enqueue } from "@/lib/offline-queue";
 import { useApp } from "./app-context";
 
-type Kind = "audio" | "imagem" | "arquivo";
-const DOC_EXT = ["pdf", "docx", "txt", "md", "markdown"];
 const ACCEPT = "audio/*,image/*,.pdf,.docx,.txt,.md,.markdown";
-
-function kindOf(file: File): Kind | null {
-  const e = (file.name.split(".").pop() ?? "").toLowerCase();
-  if (file.type.startsWith("audio/") || ["mp3", "wav", "m4a", "ogg", "webm", "aac", "flac"].includes(e)) return "audio";
-  if (file.type.startsWith("image/")) return "imagem";
-  if (DOC_EXT.includes(e)) return "arquivo";
-  return null;
-}
-
-function fileExt(file: File, kind: Kind) {
-  const e = (file.name.split(".").pop() ?? "").toLowerCase();
-  if (e && e !== file.name.toLowerCase()) return e === "markdown" ? "md" : e;
-  if (kind === "imagem") return file.type.split("/")[1] ?? "png";
-  if (kind === "audio") return file.type.includes("mp4") ? "m4a" : "webm";
-  return "txt";
-}
 
 function fmtSize(b: number) {
   return b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(b / 1024)} KB`;
@@ -100,32 +83,10 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
   async function submit() {
     if (busy) return;
     const t = text.trim();
-    const url = t.match(/https?:\/\/[^\s<>"]+/)?.[0] ?? null;
     if (!file && !t) return toast.error("Escreva algo, grave um áudio ou anexe um arquivo.");
     setBusy(true);
     try {
-      const uid = await currentUserId();
-      let attachment_path: string | null = null;
-      let source_kind: Note["source_kind"] = "texto";
-      if (file) {
-        const k = kindOf(file)!;
-        source_kind = k;
-        attachment_path = `${uid}/${crypto.randomUUID()}.${fileExt(file, k)}`;
-        const { error } = await supabase.storage.from("anexos").upload(attachment_path, file, { contentType: file.type || undefined });
-        if (error) throw new Error("Falha ao enviar o arquivo: " + error.message);
-      } else if (url) source_kind = "link";
-
-      const note = await createNote({
-        title: "Processando…",
-        content: t,
-        source_kind,
-        attachment_path,
-        source_url: !file && url ? url : null,
-        status: "processando",
-        progress: "Na fila…",
-        type: "ideia",
-        tags: [],
-      });
+      const note = await saveCapture(t, file);
       qc.setQueryData<Note[]>(["notes"], (old) => [note, ...(old ?? []).filter((n) => n.id !== note.id)]);
       setText("");
       setFile(null);
@@ -135,6 +96,19 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
       onDone?.();
       void runProcess(note.id, "full");
     } catch (e) {
+      if (isNetworkError(e)) {
+        // Sem sinal: guarda no aparelho e envia sozinho quando a internet voltar.
+        try {
+          await enqueue(t, file);
+          setText("");
+          setFile(null);
+          toast.success("Sem internet: guardado no aparelho. Envio automático quando a conexão voltar.");
+          onDone?.();
+          return;
+        } catch {
+          /* IndexedDB indisponível: cai no erro normal */
+        }
+      }
       toast.error(e instanceof Error ? e.message : "Não foi possível capturar.");
     } finally {
       setBusy(false);

@@ -1,4 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { PENDING_PROGRESS } from "@/lib/capture-utils";
+import { saveCapture } from "@/lib/capture-client";
+import { flushQueue } from "@/lib/offline-queue";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -150,6 +153,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [qc]);
 
+  // Capturas feitas pelos Atalhos do iPhone chegam na fila; a IA roda aqui, com o login do usuário (uma por vez).
+  const pending = useQuery(notesQuery).data?.filter((n) => n.status === "processando" && n.progress === PENDING_PROGRESS);
+  const pendingKey = pending?.map((n) => n.id).join(",") ?? "";
+  const started = useRef(new Set<string>());
+  useEffect(() => {
+    const ids = pendingKey ? pendingKey.split(",").filter((id) => !started.current.has(id)) : [];
+    if (!ids.length) return;
+    ids.forEach((id) => started.current.add(id));
+    void (async () => {
+      for (const id of ids) await runProcessRef.current(id, "full");
+    })();
+  }, [pendingKey]);
+
+  // Capturas guardadas sem internet: envia ao abrir o app e quando a conexão volta.
+  useEffect(() => {
+    const flush = async () => {
+      const sent = await flushQueue(async (text, file) => {
+        const n = await saveCapture(text, file);
+        void runProcessRef.current(n.id, "full");
+      });
+      if (sent) {
+        qc.invalidateQueries({ queryKey: ["notes"] });
+        toast.success(`${sent} captura${sent > 1 ? "s" : ""} feita${sent > 1 ? "s" : ""} sem internet ${sent > 1 ? "foram enviadas" : "foi enviada"}.`);
+      }
+    };
+    void flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+  }, [qc]);
+
   // Ctrl/Cmd+K
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -182,6 +215,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [process, qc],
   );
+  const runProcessRef = useRef(runProcess);
+  runProcessRef.current = runProcess;
 
   return (
     <AppCtx.Provider value={{ tabs, closeTab, captureOpen, setCaptureOpen, paletteOpen, setPaletteOpen, runProcess }}>

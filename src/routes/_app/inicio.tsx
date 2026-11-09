@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, GraduationCap, Sparkles, Unlink } from "lucide-react";
+import { CalendarDays, GraduationCap, Smartphone, Sparkles, Unlink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cardsMetaQuery } from "@/lib/brain";
 import { useMemo } from "react";
@@ -48,6 +48,9 @@ function Home() {
       <CaptureBox variant={isMobile ? "mobile" : "inline"} />
       <Reveal>
         <BriefingButtons />
+        <Link to="/atalhos" className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary md:hidden">
+          <Smartphone className="size-3.5" /> Capturar pelo Botão de Ação, Siri e Compartilhar
+        </Link>
       </Reveal>
       <Reveal className={flash ? "spark-card rounded-lg" : "rounded-lg"}>
       <section className="rounded-lg border bg-panel p-4">

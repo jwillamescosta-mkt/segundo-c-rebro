@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { NOTE_TYPE_VALUES, extractHashtags, linkStatusForConfidence, mergeTags, normalizeTitle } from "./markdown-utils";
 import { syncWikilinks } from "./wikilink-sync";
+import { cleanTime, eventStatusForConfidence, localToTimestamptz } from "./tasks-utils";
 
 const MODEL = "google/gemini-3.8-flash" as const;
 const MAX_TEXT = 30000;
@@ -171,7 +172,8 @@ interface Analysis {
   summary: string;
   type: string;
   tags: string[];
-  tasks: { text: string; due_date: string | null }[];
+  tasks: { text: string; due_date: string | null; due_time?: string | null }[];
+  events?: { title: string; date: string; start_time: string | null; end_time: string | null; confidence: number }[];
   entities: { pessoas?: string[]; clientes?: string[]; projetos?: string[] };
 }
 
@@ -189,8 +191,24 @@ const analysisSchema = {
         properties: {
           text: { type: "string" },
           due_date: { type: ["string", "null"], description: "Data real YYYY-MM-DD calculada a partir de hoje, ou null." },
+          due_time: { type: ["string", "null"], description: "Hora do prazo HH:MM (24h), só se a nota disser a hora; senão null." },
         },
-        required: ["text", "due_date"],
+        required: ["text", "due_date", "due_time"],
+      },
+    },
+    events: {
+      type: "array",
+      description: "Compromissos com data marcada: reuniões, consultas, viagens, aniversários, datas importantes. Prazos de entrega vão em tasks, não aqui.",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título curto do compromisso." },
+          date: { type: "string", description: "Data real YYYY-MM-DD." },
+          start_time: { type: ["string", "null"], description: "Início HH:MM (24h) ou null se for o dia todo." },
+          end_time: { type: ["string", "null"], description: "Fim HH:MM (24h) ou null." },
+          confidence: { type: "number", minimum: 0, maximum: 1, description: "Certeza de que é um compromisso real com essa data e hora." },
+        },
+        required: ["title", "date", "start_time", "end_time", "confidence"],
       },
     },
     entities: {
@@ -313,8 +331,9 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
     const today = todayContext();
     const analysis = await chatTool<Analysis>(
       `Você organiza um segundo cérebro pessoal em português do Brasil. Hoje é ${today.human} (${today.iso}). ` +
-        "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência) e entidades. " +
-        "Só crie tarefas quando houver uma ação concreta a fazer.",
+        "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda e entidades. " +
+        "Só crie tarefas quando houver uma ação concreta a fazer. Só crie compromissos quando houver data identificável; não invente horários. " +
+        "Horários estão no fuso de Brasília.",
       `Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
       "salvar_analise",
       analysisSchema,
@@ -346,9 +365,34 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
           note_id: noteId,
           text: t.text.trim(),
           due_date: t.due_date && /^\d{4}-\d{2}-\d{2}$/.test(t.due_date) ? t.due_date : null,
+          due_time: t.due_date ? cleanTime(t.due_time) : null,
         })),
       );
     }
+
+    // Events: replace suggestions of this note; keep confirmed ones (user may have accepted them)
+    await db.from("events").delete().eq("note_id", noteId).eq("status", "sugerido");
+    const { data: kept } = await db.from("events").select("title,starts_at").eq("note_id", noteId);
+    const keptKeys = new Set((kept ?? []).map((e) => `${normalizeTitle(e.title)}|${+new Date(e.starts_at)}`));
+    const eventRows = (analysis.events ?? []).flatMap((e) => {
+      const startTime = cleanTime(e.start_time);
+      const starts_at = localToTimestamptz(e.date, startTime);
+      if (!starts_at || !e.title?.trim()) return [];
+      if (keptKeys.has(`${normalizeTitle(e.title)}|${+new Date(starts_at)}`)) return [];
+      const endTime = cleanTime(e.end_time);
+      const confidence = Math.max(0, Math.min(1, Number(e.confidence) || 0));
+      return [{
+        user_id: userId,
+        note_id: noteId,
+        title: e.title.trim().slice(0, 200),
+        starts_at,
+        ends_at: startTime && endTime && endTime > startTime ? localToTimestamptz(e.date, endTime) : null,
+        all_day: !startTime,
+        confidence,
+        status: eventStatusForConfidence(confidence),
+      }];
+    });
+    if (eventRows.length) await db.from("events").insert(eventRows);
 
     // Connections
     await setProgress(db, noteId, "Encontrando conexões…");

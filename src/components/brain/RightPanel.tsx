@@ -13,6 +13,8 @@ import { localNeighborhood, buildGraph } from "@/lib/graph-data";
 import { useBrain } from "./app-context";
 import { TypeIcon } from "./type-meta";
 import { LazyGraph } from "./LazyGraph";
+import { AnimatePresence, motion } from "motion/react";
+import { EASE, StaggerItem, StaggerList } from "./motion";
 
 function Section({ title, count, children, defaultOpen = true }: { title: string; count?: number; children: ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -100,17 +102,32 @@ function NoteSidePanel({ note }: { note: Note }) {
           </p>
         ) : (
           <ul className="space-y-2">
-            {suggested.map((l) => {
+            <AnimatePresence initial={false}>
+            {suggested.map((l, idx) => {
               const o = other(l);
               if (!o) return null;
+              const pct = Math.round(Number(l.confidence ?? 0) * 100);
               return (
-                <li key={l.id} className="rounded-md border bg-background p-2">
+                <motion.li
+                  key={l.id}
+                  layout
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: idx * 0.05, ease: EASE } }}
+                  exit={{ opacity: 0, x: 24, height: 0, marginTop: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.25 } }}
+                  whileHover={{ y: -2, boxShadow: "0 6px 20px -8px color-mix(in oklab, var(--primary) 45%, transparent)" }}
+                  className="overflow-hidden rounded-md border bg-background p-2"
+                >
                   <div className="flex items-center gap-1.5">
-                    <Sparkles className="size-3 text-primary" />
+                    <motion.span animate={{ rotate: [0, 18, -12, 0], scale: [1, 1.25, 1] }} transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 2.5 }}>
+                      <Sparkles className="size-3 text-primary" />
+                    </motion.span>
                     <Link to="/nota/$id" params={{ id: o.id }} className="truncate font-medium hover:text-primary">
                       {o.title}
                     </Link>
-                    <span className="ml-auto font-mono text-[10px] text-muted-foreground">{Math.round(Number(l.confidence ?? 0) * 100)}%</span>
+                    <span className="ml-auto font-mono text-[10px] text-muted-foreground">{pct}%</span>
+                  </div>
+                  <div className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-secondary" aria-hidden>
+                    <motion.div className="h-full rounded-full bg-primary" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.9, ease: EASE, delay: 0.15 + idx * 0.05 }} />
                   </div>
                   {l.reason && <p className="mt-1 text-xs text-muted-foreground">{l.reason}</p>}
                   <div className="mt-2 flex gap-1">
@@ -121,9 +138,10 @@ function NoteSidePanel({ note }: { note: Note }) {
                       <X className="size-3" /> Rejeitar
                     </button>
                   </div>
-                </li>
+                </motion.li>
               );
             })}
+            </AnimatePresence>
           </ul>
         )}
       </Section>
@@ -132,21 +150,21 @@ function NoteSidePanel({ note }: { note: Note }) {
         {backlinks.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhuma nota aponta para esta.</p>
         ) : (
-          <ul className="space-y-2">
+          <StaggerList key={note.id} className="space-y-2">
             {backlinks.map((l) => {
               const o = byId.get(l.source_note_id);
               if (!o) return null;
               const snip = snippetAround(o.content, `[[${note.title}`) ?? snippetAround(o.content, note.title) ?? o.summary;
               return (
-                <li key={l.id}>
+                <StaggerItem key={l.id}>
                   <Link to="/nota/$id" params={{ id: o.id }} className="flex items-center gap-1.5 font-medium hover:text-primary">
                     <TypeIcon type={o.type} /> <span className="truncate">{o.title}</span>
                   </Link>
                   {snip && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{snip}</p>}
-                </li>
+                </StaggerItem>
               );
             })}
-          </ul>
+          </StaggerList>
         )}
         {accepted.filter((l) => l.source_note_id === note.id).length > 0 && (
           <div className="mt-3">

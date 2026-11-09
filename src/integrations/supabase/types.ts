@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          all_day: boolean
+          confidence: number | null
+          created_at: string
+          ends_at: string | null
+          id: string
+          note_id: string | null
+          starts_at: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean
+          confidence?: number | null
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          note_id?: string | null
+          starts_at: string
+          status?: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          all_day?: boolean
+          confidence?: number | null
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          note_id?: string | null
+          starts_at?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links: {
         Row: {
           confidence: number | null
@@ -145,6 +192,7 @@ export type Database = {
           created_at: string
           done: boolean
           due_date: string | null
+          due_time: string | null
           id: string
           note_id: string | null
           text: string
@@ -154,6 +202,7 @@ export type Database = {
           created_at?: string
           done?: boolean
           due_date?: string | null
+          due_time?: string | null
           id?: string
           note_id?: string | null
           text: string
@@ -163,6 +212,7 @@ export type Database = {
           created_at?: string
           done?: boolean
           due_date?: string | null
+          due_time?: string | null
           id?: string
           note_id?: string | null
           text?: string

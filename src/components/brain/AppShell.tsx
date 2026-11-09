@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Mic, Network, NotebookText, ListTodo, Plus, X, Loader2 } from "lucide-react";
+import { CalendarDays, Mic, Network, NotebookText, ListTodo, Plus, X, Loader2 } from "lucide-react";
+import { MotionConfig, motion } from "motion/react";
+import { EASE } from "./motion";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -71,10 +73,11 @@ function MobileNav() {
     { to: "/inicio" as const, label: "Capturar", icon: Mic },
     { to: "/notas" as const, label: "Notas", icon: NotebookText },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
+    { to: "/agenda" as const, label: "Agenda", icon: CalendarDays },
     { to: "/tarefas" as const, label: "Tarefas", icon: ListTodo },
   ];
   return (
-    <nav className="grid shrink-0 grid-cols-4 border-t bg-panel pb-[env(safe-area-inset-bottom)]">
+    <nav className="grid shrink-0 grid-cols-5 border-t bg-panel pb-[env(safe-area-inset-bottom)]">
       {items.map((i) => (
         <Link
           key={i.to}
@@ -90,12 +93,36 @@ function MobileNav() {
   );
 }
 
+/** Entrada suave a cada troca de página. */
+function PageTransition({ children }: { children: ReactNode }) {
+  const loc = useLocation();
+  return (
+    <motion.div
+      key={loc.pathname}
+      className="h-full"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: EASE }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <MotionConfig reducedMotion="user">
+      <Shell>{children}</Shell>
+    </MotionConfig>
+  );
+}
+
+function Shell({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   const { setCaptureOpen } = useApp();
 
   const fab = (
-    <button
+    <motion.button
       onClick={() => setCaptureOpen(true)}
       className={cn(
         "fixed z-40 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90",
@@ -103,15 +130,21 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
       aria-label="Nova captura"
       title="Nova captura"
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      whileHover={{ scale: 1.08, rotate: 90, boxShadow: "0 0 0 8px color-mix(in oklab, var(--primary) 18%, transparent)" }}
+      whileTap={{ scale: 0.92 }}
+      transition={{ type: "spring", stiffness: 400, damping: 18 }}
     >
       <Plus className="size-5" />
-    </button>
+    </motion.button>
   );
+  const page = <PageTransition>{children}</PageTransition>;
 
   if (isMobile) {
     return (
       <div className="flex h-[100dvh] flex-col bg-background">
-        <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto">{page}</main>
         <MobileNav />
         {fab}
         <CaptureDialog />
@@ -130,7 +163,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <ResizablePanel id="center" defaultSize="60" minSize="30">
           <div className="flex h-full flex-col">
             <TabsBar />
-            <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+            <main className="min-h-0 flex-1 overflow-y-auto">{page}</main>
           </div>
         </ResizablePanel>
         <ResizableHandle />

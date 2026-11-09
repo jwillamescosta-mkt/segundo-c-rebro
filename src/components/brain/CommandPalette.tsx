@@ -64,6 +64,9 @@ export function CommandPalette() {
           <CommandItem value="inicio" onSelect={() => go(() => navigate({ to: "/inicio" }))}>
             <Home /> Início
           </CommandItem>
+          <CommandItem value="agenda" onSelect={() => go(() => navigate({ to: "/agenda" }))}>
+            <CalendarDays /> Agenda
+          </CommandItem>
           <CommandItem value="tarefas" onSelect={() => go(() => navigate({ to: "/tarefas" }))}>
             <ListTodo /> Tarefas
           </CommandItem>

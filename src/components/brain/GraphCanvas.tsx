@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D, { type ForceGraphMethods, type NodeObject, type LinkObject } from "react-force-graph-2d";
+import { useReducedMotion } from "motion/react";
 import { cssVar } from "./type-meta";
+
+function easeOutBack(x: number) {
+  const c = 1.70158;
+  return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2;
+}
 
 export interface GNode {
   id: string;
@@ -28,6 +34,9 @@ interface Props {
   compact?: boolean;
 }
 
+type Colors = Record<string, string> & { bg: string; link: string; sugg: string; label: string; primary: string };
+const NO_COLORS: Colors = { bg: "", link: "", sugg: "", label: "", primary: "" };
+
 function endId(x: unknown) {
   return typeof x === "object" && x ? (x as N).id : (x as string);
 }
@@ -37,19 +46,19 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
   const fg = useRef<ForceGraphMethods<N, L> | undefined>(undefined);
   const [size, setSize] = useState({ w: 300, h: 300 });
   const [hover, setHover] = useState<string | null>(null);
-  const [colors, setColors] = useState<Record<string, string>>({});
+  const [colors, setColors] = useState<Colors>(NO_COLORS);
 
   useEffect(() => {
     const el = wrap.current;
     if (!el) return;
-    const ro = new ResizeObserver(([e]) => setSize({ w: e.contentRect.width, h: e.contentRect.height }));
+    const ro = new ResizeObserver(([e]) => e && setSize({ w: e.contentRect.width, h: e.contentRect.height }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
     const read = () => {
-      const c: Record<string, string> = {};
+      const c: Colors = { ...NO_COLORS };
       for (const t of ["ideia", "tarefa", "cliente", "projeto", "conteudo", "pessoa", "referencia", "diario", "aprendizado"])
         c[t] = cssVar(`--type-${t}`);
       c.bg = cssVar("--graph-bg");
@@ -91,6 +100,20 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
 
   const active = hover ?? focusId ?? null;
   const activeSet = active ? new Set([active, ...(adj.get(active) ?? [])]) : null;
+  const isActiveLink = (l: L) => !!active && (endId(l.source) === active || endId(l.target) === active);
+
+  // Animação: nascimento dos nós, transição suave do foco e ondas no nó ativo.
+  const reduced = useReducedMotion();
+  const bornAt = useRef(new Map<string, number>());
+  const focusAt = useRef(0);
+  useEffect(() => {
+    focusAt.current = performance.now();
+  }, [active]);
+  const fitted = useRef(false);
+  useEffect(() => {
+    fitted.current = false;
+  }, [data]);
+  const glow = !reduced && nodes.length < 400; // shadowBlur custa caro em grafos grandes
 
   return (
     <div ref={wrap} className="h-full w-full">
@@ -101,6 +124,12 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
         graphData={data}
         backgroundColor={colors.bg}
         cooldownTicks={compact ? 120 : 300}
+        autoPauseRedraw={!!reduced}
+        onEngineStop={() => {
+          if (fitted.current || !fg.current) return;
+          fitted.current = true;
+          fg.current.zoomToFit(reduced ? 0 : 900, compact ? 20 : 60);
+        }}
         nodeRelSize={4}
         nodeVal={(n) => 1 + Math.sqrt(n.degree) * 1.6}
         linkColor={(l) => {
@@ -108,28 +137,62 @@ export default function GraphCanvas({ nodes, links, onNodeClick, highlight, focu
           const t = endId(l.target);
           const on = activeSet ? activeSet.has(s) && activeSet.has(t) && (s === active || t === active) : true;
           if (!on) return "transparent";
+          if (active) return colors.primary;
           return l.suggested ? colors.sugg : colors.link;
         }}
         linkLineDash={(l) => (l.suggested ? [3, 3] : null)}
-        linkWidth={(l) => {
-          const s = endId(l.source);
-          const t = endId(l.target);
-          return active && (s === active || t === active) ? 1.6 : 0.8;
-        }}
+        linkWidth={(l) => (isActiveLink(l) ? 1.8 : 0.8)}
+        linkCurvature={0.12}
+        // "Sinapses": pulsos que viajam pelas ligações; mais rápidos e intensos no nó em foco.
+        linkDirectionalParticles={(l) => (reduced ? 0 : isActiveLink(l) ? 4 : activeSet || l.suggested ? 0 : 1)}
+        linkDirectionalParticleSpeed={(l) => (isActiveLink(l) ? 0.014 : 0.004)}
+        linkDirectionalParticleWidth={(l) => (isActiveLink(l) ? 3 : 1.6)}
+        linkDirectionalParticleColor={() => colors.primary}
         onNodeHover={(n) => {
           setHover(n ? (n.id as string) : null);
           if (wrap.current) wrap.current.style.cursor = n ? "pointer" : "default";
         }}
         onNodeClick={(n) => onNodeClick?.(n.id as string)}
         nodeCanvasObject={(n, ctx, scale) => {
-          const r = 3 + Math.sqrt(n.degree) * 1.9;
+          const now = performance.now();
           const id = n.id as string;
+          if (!bornAt.current.has(id)) bornAt.current.set(id, now + Math.random() * 400);
+          const grow = reduced ? 1 : easeOutBack(Math.min(1, Math.max(0, (now - bornAt.current.get(id)!) / 700)));
+          if (grow <= 0) return;
+          const base = 3 + Math.sqrt(n.degree) * 1.9;
+          const isActive = id === active;
+          const neighbor = !!activeSet?.has(id) && !isActive;
+          const breathe = !reduced && (isActive || neighbor) ? 1 + 0.08 * Math.sin(now / 260 + id.length) : 1;
+          const r = base * grow * breathe;
+          const color = colors[n.type] ?? colors.label;
+          const fade = reduced ? 1 : Math.min(1, (now - focusAt.current) / 280);
           const dim = (activeSet && !activeSet.has(id)) || (highlight && !highlight.has(id));
-          ctx.globalAlpha = dim ? 0.15 : 1;
+          ctx.globalAlpha = dim ? 1 - 0.85 * fade : 1;
+
+          // Ondas saindo do nó em foco
+          if (isActive && !reduced) {
+            for (let k = 0; k < 2; k++) {
+              const p = ((now / 1400 + k / 2) % 1 + 1) % 1;
+              ctx.beginPath();
+              ctx.arc(n.x!, n.y!, r + p * 18, 0, 2 * Math.PI);
+              ctx.strokeStyle = colors.primary;
+              ctx.globalAlpha = (1 - p) * 0.5;
+              ctx.lineWidth = 1.2 / scale;
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+          }
+
+          ctx.save();
+          if (glow && !dim) {
+            ctx.shadowColor = color;
+            ctx.shadowBlur = isActive ? 24 : neighbor ? 14 : 6;
+          }
           ctx.beginPath();
           ctx.arc(n.x!, n.y!, r, 0, 2 * Math.PI);
-          ctx.fillStyle = colors[n.type] ?? colors.label;
+          ctx.fillStyle = color;
           ctx.fill();
+          ctx.restore();
           if (id === focusId || id === hover || (highlight && highlight.has(id))) {
             ctx.lineWidth = 1.5 / scale;
             ctx.strokeStyle = colors.primary;

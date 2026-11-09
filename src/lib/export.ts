@@ -1,8 +1,9 @@
 import JSZip from "jszip";
-import type { Link, Note } from "./brain";
+import type { CalendarEvent, Link, Note, Task } from "./brain";
 import { noteToMarkdown, sanitizeFilename } from "./markdown-utils";
+import { agendaToMarkdown } from "./tasks-utils";
 
-export async function exportVault(notes: Note[], links: Link[]) {
+export async function exportVault(notes: Note[], links: Link[], tasks: Task[] = [], events: CalendarEvent[] = []) {
   const zip = new JSZip();
   const folder = zip.folder("Segundo Cérebro")!;
   const byId = new Map(notes.map((n) => [n.id, n]));
@@ -21,6 +22,10 @@ export async function exportVault(notes: Note[], links: Link[]) {
       .filter((x): x is Note => !!x)
       .map((x) => fileName.get(x.id)!);
     folder.file(`${fileName.get(n.id)}.md`, noteToMarkdown(n, [...new Set(linked)]));
+  }
+  if (tasks.length || events.length) {
+    const titleOf = (id: string | null) => (id && fileName.get(id)) || null;
+    folder.file("_Agenda.md", agendaToMarkdown(tasks, events, titleOf));
   }
   const blob = await zip.generateAsync({ type: "blob" });
   const a = document.createElement("a");

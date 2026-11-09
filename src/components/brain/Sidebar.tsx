@@ -110,7 +110,7 @@ function NoteRow({ n, active }: { n: Note; active: boolean }) {
 }
 
 export function Sidebar() {
-  const { notes, links, loading } = useBrain();
+  const { notes, links, tasks, events, loading } = useBrain();
   const { setCaptureOpen, setPaletteOpen } = useApp();
   const params = useParams({ strict: false }) as { id?: string };
   const openToday = useOpenToday();
@@ -141,6 +141,7 @@ export function Sidebar() {
   const nav = [
     { to: "/inicio" as const, label: "Início", icon: Home },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
+    { to: "/agenda" as const, label: "Agenda", icon: CalendarDays },
     { to: "/tarefas" as const, label: "Tarefas", icon: ListTodo },
     { to: "/compartilhadas" as const, label: "Compartilhadas", icon: Share2 },
   ];
@@ -294,7 +295,7 @@ export function Sidebar() {
           onClick={async () => {
             setExporting(true);
             try {
-              await exportVault(notes, links);
+              await exportVault(notes, links, tasks, events);
               toast.success("Exportação pronta: abra a pasta no Obsidian.");
             } catch {
               toast.error("Falha ao exportar.");

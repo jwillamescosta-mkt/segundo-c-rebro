@@ -8,6 +8,7 @@ import { todayISO, formatDateBR } from "./tasks-utils";
 export type Note = Omit<Tables<"notes">, "search_vector" | "user_id">;
 export type Link = Tables<"links">;
 export type Task = Tables<"tasks">;
+export type CalendarEvent = Tables<"events">;
 
 const NOTE_COLS =
   "id,title,content,summary,type,tags,source_kind,attachment_path,source_url,og_image,status,progress,error_message,entities,is_shared,share_token,pinned,daily_date,created_at,updated_at";
@@ -42,6 +43,22 @@ export const tasksQuery = queryOptions({
     fetchAll<Task>((a, b) => supabase.from("tasks").select("*").order("due_date", { ascending: true }).range(a, b) as never),
 });
 
+export const eventsQuery = queryOptions({
+  queryKey: ["events"],
+  queryFn: () =>
+    fetchAll<CalendarEvent>((a, b) => supabase.from("events").select("*").order("starts_at", { ascending: true }).range(a, b) as never),
+});
+
+export async function confirmEvent(id: string) {
+  const { error } = await supabase.from("events").update({ status: "confirmado" }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteEvent(id: string) {
+  const { error } = await supabase.from("events").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function currentUserId() {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw new Error("Sessão expirada. Entre novamente.");
@@ -52,6 +69,7 @@ export function invalidateBrain(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ["notes"] });
   qc.invalidateQueries({ queryKey: ["links"] });
   qc.invalidateQueries({ queryKey: ["tasks"] });
+  qc.invalidateQueries({ queryKey: ["events"] });
 }
 
 export async function createNote(input: Partial<Note> & { title: string }) {

@@ -219,3 +219,45 @@
 @utility animate-rec {
   animation: rec-ring 1.3s ease-out infinite;
 }
+
+/* Borda luminosa girando em volta do "Lampejo do dia" */
+@property --spark-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes spark-spin {
+  to { --spark-angle: 360deg; }
+}
+.spark-card {
+  position: relative;
+  isolation: isolate;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--spark-angle),
+    transparent 0deg,
+    color-mix(in oklab, var(--color-primary) 85%, transparent) 60deg,
+    transparent 140deg,
+    transparent 360deg
+  );
+  animation: spark-spin 6s linear infinite;
+}
+.spark-card > section {
+  border-color: transparent;
+}
+.spark-card::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--color-primary) 18%, transparent), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.spark-card:hover::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spark-card { animation: none; }
+}

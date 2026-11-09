@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { linksQuery, notesQuery, tasksQuery, type Link, type Note } from "@/lib/brain";
+import { eventsQuery, linksQuery, notesQuery, tasksQuery, type Link, type Note } from "@/lib/brain";
 import { processNote } from "@/lib/process.functions";
 
 interface Ctx {
@@ -29,11 +29,13 @@ export function useBrain() {
   const notes = useQuery(notesQuery);
   const links = useQuery(linksQuery);
   const tasks = useQuery(tasksQuery);
+  const events = useQuery(eventsQuery);
   const byId = useMemo(() => new Map((notes.data ?? []).map((n) => [n.id, n])), [notes.data]);
   return {
     notes: notes.data ?? [],
     links: links.data ?? [],
     tasks: tasks.data ?? [],
+    events: events.data ?? [],
     byId,
     loading: notes.isLoading || links.isLoading,
     error: notes.error ?? links.error,
@@ -128,6 +130,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () =>
         qc.invalidateQueries({ queryKey: ["tasks"] }),
       )
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () =>
+        qc.invalidateQueries({ queryKey: ["events"] }),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -160,6 +165,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         qc.invalidateQueries({ queryKey: ["notes"] });
         qc.invalidateQueries({ queryKey: ["links"] });
         qc.invalidateQueries({ queryKey: ["tasks"] });
+        qc.invalidateQueries({ queryKey: ["events"] });
       }
     },
     [process, qc],

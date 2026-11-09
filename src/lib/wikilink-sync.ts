@@ -7,8 +7,14 @@ type DB = SupabaseClient<Database>;
 /** Make 'wikilink' links mirror the [[wikilinks]] present in a note's content. */
 export async function syncWikilinks(db: DB, userId: string, noteId: string, content: string) {
   const targets = extractWikilinks(content).map(normalizeTitle);
-  const { data: notes } = await db.from("notes").select("id,title");
-  const byTitle = new Map((notes ?? []).map((n) => [normalizeTitle(n.title), n.id]));
+  // Pagina: o PostgREST devolve no máximo 1000 linhas por consulta.
+  const notes: { id: string; title: string }[] = [];
+  for (let from = 0; targets.length; from += 1000) {
+    const { data } = await db.from("notes").select("id,title").range(from, from + 999);
+    notes.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  const byTitle = new Map(notes.map((n) => [normalizeTitle(n.title), n.id]));
   const wanted = new Set(
     targets.map((t) => byTitle.get(t)).filter((id): id is string => !!id && id !== noteId),
   );

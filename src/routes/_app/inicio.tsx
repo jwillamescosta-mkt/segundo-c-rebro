@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AgendaList } from "@/components/brain/AgendaList";
 import { ConnectionSpark } from "@/components/brain/ConnectionSpark";
+import { BriefingButtons } from "@/components/brain/BriefingButtons";
 import { Reveal, StaggerItem, StaggerList } from "@/components/brain/motion";
 import { addDaysISO, buildAgenda, formatDayBR, todayISO } from "@/lib/tasks-utils";
 import { CaptureBox } from "@/components/brain/CaptureBox";
@@ -45,6 +46,9 @@ function Home() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
       <CaptureBox variant={isMobile ? "mobile" : "inline"} />
+      <Reveal>
+        <BriefingButtons />
+      </Reveal>
       <Reveal className={flash ? "spark-card rounded-lg" : "rounded-lg"}>
       <section className="rounded-lg border bg-panel p-4">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold"><Sparkles className="size-4 text-primary" /> Lampejo do dia</h2>

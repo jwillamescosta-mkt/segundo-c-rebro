@@ -7,6 +7,7 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { BRIEFING_HEADING, demoteHeadings, upsertBriefing } from "@/lib/briefing-utils";
 import { cardsToMarkdown, intervalLabel, schedule } from "@/lib/study-utils";
 import {
   agendaToMarkdown,
@@ -17,6 +18,22 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("briefing", () => {
+  it("adiciona o briefing no fim do diário", () => {
+    expect(upsertBriefing("# Diário\n\nAnotei algo.", "### Foco\n- A")).toBe(`# Diário\n\nAnotei algo.\n\n${BRIEFING_HEADING}\n\n### Foco\n- A\n`);
+  });
+  it("troca o briefing anterior e preserva as outras seções", () => {
+    const old = `# Diário\n\n${BRIEFING_HEADING}\n\nvelho\n\n## Notas\n\nminhas notas`;
+    const r = upsertBriefing(old, "novo");
+    expect(r).toContain("novo");
+    expect(r).not.toContain("velho");
+    expect(r).toContain("## Notas\n\nminhas notas");
+  });
+  it("rebaixa títulos # e ## para ###", () => {
+    expect(demoteHeadings("## Foco\n# X\n### Y")).toBe("### Foco\n### X\n### Y");
+  });
+});
 
 describe("revisão espaçada", () => {
   const novo = { interval_days: 0, ease: 2.5, reps: 0, lapses: 0 };

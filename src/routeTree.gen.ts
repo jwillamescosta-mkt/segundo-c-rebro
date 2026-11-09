@@ -10,33 +10,143 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as EntrarRouteImport } from './routes/entrar'
+import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilhadas'
+import { Route as AppGrafoRouteImport } from './routes/_app/grafo'
+import { Route as AppInicioRouteImport } from './routes/_app/inicio'
+import { Route as AppNotasRouteImport } from './routes/_app/notas'
+import { Route as AppTarefasRouteImport } from './routes/_app/tarefas'
+import { Route as STokenRouteImport } from './routes/s.$token'
+import { Route as AppNotaIdRouteImport } from './routes/_app/nota.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EntrarRoute = EntrarRouteImport.update({
+  id: '/entrar',
+  path: '/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppCompartilhadasRoute = AppCompartilhadasRouteImport.update({
+  id: '/compartilhadas',
+  path: '/compartilhadas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGrafoRoute = AppGrafoRouteImport.update({
+  id: '/grafo',
+  path: '/grafo',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppInicioRoute = AppInicioRouteImport.update({
+  id: '/inicio',
+  path: '/inicio',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNotasRoute = AppNotasRouteImport.update({
+  id: '/notas',
+  path: '/notas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTarefasRoute = AppTarefasRouteImport.update({
+  id: '/tarefas',
+  path: '/tarefas',
+  getParentRoute: () => AppRoute,
+} as any)
+const STokenRoute = STokenRouteImport.update({
+  id: '/s/$token',
+  path: '/s/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppNotaIdRoute = AppNotaIdRouteImport.update({
+  id: '/nota/$id',
+  path: '/nota/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/entrar': typeof EntrarRoute
+  '/compartilhadas': typeof AppCompartilhadasRoute
+  '/grafo': typeof AppGrafoRoute
+  '/inicio': typeof AppInicioRoute
+  '/notas': typeof AppNotasRoute
+  '/tarefas': typeof AppTarefasRoute
+  '/s/$token': typeof STokenRoute
+  '/nota/$id': typeof AppNotaIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/entrar': typeof EntrarRoute
+  '/compartilhadas': typeof AppCompartilhadasRoute
+  '/grafo': typeof AppGrafoRoute
+  '/inicio': typeof AppInicioRoute
+  '/notas': typeof AppNotasRoute
+  '/tarefas': typeof AppTarefasRoute
+  '/s/$token': typeof STokenRoute
+  '/nota/$id': typeof AppNotaIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/entrar': typeof EntrarRoute
+  '/_app/compartilhadas': typeof AppCompartilhadasRoute
+  '/_app/grafo': typeof AppGrafoRoute
+  '/_app/inicio': typeof AppInicioRoute
+  '/_app/notas': typeof AppNotasRoute
+  '/_app/tarefas': typeof AppTarefasRoute
+  '/s/$token': typeof STokenRoute
+  '/_app/nota/$id': typeof AppNotaIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/entrar'
+    | '/compartilhadas'
+    | '/grafo'
+    | '/inicio'
+    | '/notas'
+    | '/tarefas'
+    | '/s/$token'
+    | '/nota/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/entrar'
+    | '/compartilhadas'
+    | '/grafo'
+    | '/inicio'
+    | '/notas'
+    | '/tarefas'
+    | '/s/$token'
+    | '/nota/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/entrar'
+    | '/_app/compartilhadas'
+    | '/_app/grafo'
+    | '/_app/inicio'
+    | '/_app/notas'
+    | '/_app/tarefas'
+    | '/s/$token'
+    | '/_app/nota/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  EntrarRoute: typeof EntrarRoute
+  STokenRoute: typeof STokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +158,97 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/entrar': {
+      id: '/entrar'
+      path: '/entrar'
+      fullPath: '/entrar'
+      preLoaderRoute: typeof EntrarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/compartilhadas': {
+      id: '/_app/compartilhadas'
+      path: '/compartilhadas'
+      fullPath: '/compartilhadas'
+      preLoaderRoute: typeof AppCompartilhadasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/grafo': {
+      id: '/_app/grafo'
+      path: '/grafo'
+      fullPath: '/grafo'
+      preLoaderRoute: typeof AppGrafoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/inicio': {
+      id: '/_app/inicio'
+      path: '/inicio'
+      fullPath: '/inicio'
+      preLoaderRoute: typeof AppInicioRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/notas': {
+      id: '/_app/notas'
+      path: '/notas'
+      fullPath: '/notas'
+      preLoaderRoute: typeof AppNotasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/tarefas': {
+      id: '/_app/tarefas'
+      path: '/tarefas'
+      fullPath: '/tarefas'
+      preLoaderRoute: typeof AppTarefasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/s/$token': {
+      id: '/s/$token'
+      path: '/s/$token'
+      fullPath: '/s/$token'
+      preLoaderRoute: typeof STokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/nota/$id': {
+      id: '/_app/nota/$id'
+      path: '/nota/$id'
+      fullPath: '/nota/$id'
+      preLoaderRoute: typeof AppNotaIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppCompartilhadasRoute: typeof AppCompartilhadasRoute
+  AppGrafoRoute: typeof AppGrafoRoute
+  AppInicioRoute: typeof AppInicioRoute
+  AppNotasRoute: typeof AppNotasRoute
+  AppTarefasRoute: typeof AppTarefasRoute
+  AppNotaIdRoute: typeof AppNotaIdRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppCompartilhadasRoute: AppCompartilhadasRoute,
+  AppGrafoRoute: AppGrafoRoute,
+  AppInicioRoute: AppInicioRoute,
+  AppNotasRoute: AppNotasRoute,
+  AppTarefasRoute: AppTarefasRoute,
+  AppNotaIdRoute: AppNotaIdRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  EntrarRoute: EntrarRoute,
+  STokenRoute: STokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

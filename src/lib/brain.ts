@@ -88,6 +88,40 @@ export const eventsQuery = queryOptions({
     fetchAll<CalendarEvent>((a, b) => supabase.from("events").select("*").order("starts_at", { ascending: true }).range(a, b) as never),
 });
 
+export type Card = Tables<"cards">;
+export type CardMeta = Pick<Card, "id" | "note_id" | "due" | "reps" | "last_reviewed_at">;
+
+/** Metadados leves de todos os cards (contagens e por nota). */
+export const cardsMetaQuery = queryOptions({
+  queryKey: ["cards", "meta"],
+  queryFn: () => fetchAll<CardMeta>((a, b) => supabase.from("cards").select("id,note_id,due,reps,last_reviewed_at").range(a, b) as never),
+});
+
+/** Cards a revisar hoje (com pergunta e resposta). */
+export const dueCardsQuery = (today: string) =>
+  queryOptions({
+    queryKey: ["cards", "due", today],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("cards").select("*").lte("due", today).order("due").limit(300);
+      if (error) throw error;
+      return data as Card[];
+    },
+  });
+
+export async function saveReview(id: string, patch: Pick<Card, "due" | "interval_days" | "ease" | "reps" | "lapses">) {
+  const { error } = await supabase.from("cards").update({ ...patch, last_reviewed_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteCard(id: string) {
+  const { error } = await supabase.from("cards").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export function fetchAllCards() {
+  return fetchAll<Card>((a, b) => supabase.from("cards").select("*").order("created_at").range(a, b) as never);
+}
+
 export async function confirmEvent(id: string) {
   const { error } = await supabase.from("events").update({ status: "confirmado" }).eq("id", id);
   if (error) throw error;

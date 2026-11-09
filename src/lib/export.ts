@@ -1,5 +1,6 @@
 import JSZip from "jszip";
-import { fetchAllNotesFull, type CalendarEvent, type Link, type Note, type Task } from "./brain";
+import { fetchAllCards, fetchAllNotesFull, type CalendarEvent, type Link, type Note, type Task } from "./brain";
+import { cardsToMarkdown } from "./study-utils";
 import { noteToMarkdown, sanitizeFilename } from "./markdown-utils";
 import { agendaToMarkdown } from "./tasks-utils";
 
@@ -24,6 +25,10 @@ export async function exportVault(links: Link[], tasks: Task[] = [], events: Cal
       .filter((x): x is Note => !!x)
       .map((x) => fileName.get(x.id)!);
     folder.file(`${fileName.get(n.id)}.md`, noteToMarkdown(n, [...new Set(linked)]));
+  }
+  const cards = await fetchAllCards();
+  if (cards.length) {
+    folder.file("_Flashcards.md", cardsToMarkdown(cards, (id) => (id && fileName.get(id)) || null));
   }
   if (tasks.length || events.length) {
     const titleOf = (id: string | null) => (id && fileName.get(id)) || null;

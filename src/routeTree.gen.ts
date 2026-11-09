@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as EntrarRouteImport } from './routes/entrar'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilhadas'
+import { Route as AppEstudarRouteImport } from './routes/_app/estudar'
 import { Route as AppGrafoRouteImport } from './routes/_app/grafo'
 import { Route as AppInicioRouteImport } from './routes/_app/inicio'
 import { Route as AppNotasRouteImport } from './routes/_app/notas'
@@ -44,6 +45,11 @@ const AppAgendaRoute = AppAgendaRouteImport.update({
 const AppCompartilhadasRoute = AppCompartilhadasRouteImport.update({
   id: '/compartilhadas',
   path: '/compartilhadas',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEstudarRoute = AppEstudarRouteImport.update({
+  id: '/estudar',
+  path: '/estudar',
   getParentRoute: () => AppRoute,
 } as any)
 const AppGrafoRoute = AppGrafoRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/entrar': typeof EntrarRoute
   '/agenda': typeof AppAgendaRoute
   '/compartilhadas': typeof AppCompartilhadasRoute
+  '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
   '/inicio': typeof AppInicioRoute
   '/notas': typeof AppNotasRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/entrar': typeof EntrarRoute
   '/agenda': typeof AppAgendaRoute
   '/compartilhadas': typeof AppCompartilhadasRoute
+  '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
   '/inicio': typeof AppInicioRoute
   '/notas': typeof AppNotasRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/entrar': typeof EntrarRoute
   '/_app/agenda': typeof AppAgendaRoute
   '/_app/compartilhadas': typeof AppCompartilhadasRoute
+  '/_app/estudar': typeof AppEstudarRoute
   '/_app/grafo': typeof AppGrafoRoute
   '/_app/inicio': typeof AppInicioRoute
   '/_app/notas': typeof AppNotasRoute
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/agenda'
     | '/compartilhadas'
+    | '/estudar'
     | '/grafo'
     | '/inicio'
     | '/notas'
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/agenda'
     | '/compartilhadas'
+    | '/estudar'
     | '/grafo'
     | '/inicio'
     | '/notas'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/entrar'
     | '/_app/agenda'
     | '/_app/compartilhadas'
+    | '/_app/estudar'
     | '/_app/grafo'
     | '/_app/inicio'
     | '/_app/notas'
@@ -208,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/compartilhadas'
       fullPath: '/compartilhadas'
       preLoaderRoute: typeof AppCompartilhadasRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/estudar': {
+      id: '/_app/estudar'
+      path: '/estudar'
+      fullPath: '/estudar'
+      preLoaderRoute: typeof AppEstudarRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/grafo': {
@@ -265,6 +284,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAgendaRoute: typeof AppAgendaRoute
   AppCompartilhadasRoute: typeof AppCompartilhadasRoute
+  AppEstudarRoute: typeof AppEstudarRoute
   AppGrafoRoute: typeof AppGrafoRoute
   AppInicioRoute: typeof AppInicioRoute
   AppNotasRoute: typeof AppNotasRoute
@@ -276,6 +296,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAgendaRoute: AppAgendaRoute,
   AppCompartilhadasRoute: AppCompartilhadasRoute,
+  AppEstudarRoute: AppEstudarRoute,
   AppGrafoRoute: AppGrafoRoute,
   AppInicioRoute: AppInicioRoute,
   AppNotasRoute: AppNotasRoute,

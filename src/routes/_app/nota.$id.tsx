@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { deleteNote, noteQuery, saveNoteContent, signedUrl, updateNote, type Note } from "@/lib/brain";
 import { useApp, useBrain } from "@/components/brain/app-context";
 import { Markdown } from "@/components/brain/Markdown";
+import { GenerateCardsButton } from "@/components/brain/GenerateCardsButton";
 import { TypeIcon } from "@/components/brain/type-meta";
 import { typeLabel } from "@/lib/markdown-utils";
 
@@ -105,6 +106,7 @@ function NoteEditor({ note }: { note: Note }) {
             <button key={m} onClick={() => setMode(m)} className={cn("rounded px-2 py-0.5 capitalize", mode === m ? "bg-secondary text-foreground" : "hover:text-foreground")}>{m}</button>
           ))}
           <button title="Fixar" onClick={() => updateNote(note.id, { pinned: !note.pinned }).then(() => { qc.invalidateQueries({ queryKey: ["notes"] }); qc.invalidateQueries({ queryKey: ["note", note.id] }); })} className={cn("rounded p-1 hover:bg-secondary", note.pinned && "text-primary")}><Pin className="size-3.5" /></button>
+          <GenerateCardsButton noteId={note.id} />
           <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" disabled={note.status === "processando"} onClick={() => runProcess(note.id, "reanalyze")}><RefreshCw className="size-3" /> Reanalisar com IA</Button>
           <button title="Excluir" onClick={async () => { if (!confirm("Excluir esta nota?")) return; await deleteNote(note); qc.invalidateQueries({ queryKey: ["notes"] }); navigate({ to: "/inicio" }); }} className="rounded p-1 hover:bg-secondary hover:text-destructive"><Trash2 className="size-3.5" /></button>
         </div>

@@ -30,7 +30,7 @@ export async function chatText(system: string, parts: Part[]): Promise<string> {
   return "";
 }
 
-async function chatTool<T>(system: string, user: string, name: string, parameters: Record<string, unknown>): Promise<T> {
+export async function chatTool<T>(system: string, user: string, name: string, parameters: Record<string, unknown>): Promise<T> {
   const res = await generateChatCompletion({
     model: MODEL,
     messages: [

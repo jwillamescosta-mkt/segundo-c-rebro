@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      cards: {
+        Row: {
+          answer: string
+          created_at: string
+          due: string
+          ease: number
+          id: string
+          interval_days: number
+          lapses: number
+          last_reviewed_at: string | null
+          note_id: string | null
+          question: string
+          reps: number
+          user_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          due?: string
+          ease?: number
+          id?: string
+          interval_days?: number
+          lapses?: number
+          last_reviewed_at?: string | null
+          note_id?: string | null
+          question: string
+          reps?: number
+          user_id?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          due?: string
+          ease?: number
+          id?: string
+          interval_days?: number
+          lapses?: number
+          last_reviewed_at?: string | null
+          note_id?: string | null
+          question?: string
+          reps?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cards_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           all_day: boolean

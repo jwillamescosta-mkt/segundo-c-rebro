@@ -7,6 +7,7 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { cardsToMarkdown, intervalLabel, schedule } from "@/lib/study-utils";
 import {
   agendaToMarkdown,
   buildAgenda,
@@ -16,6 +17,31 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("revisão espaçada", () => {
+  const novo = { interval_days: 0, ease: 2.5, reps: 0, lapses: 0 };
+  it("card novo: Bom revisa amanhã, Fácil em 3 dias", () => {
+    expect(schedule(novo, 3, "2026-11-09").due).toBe("2026-11-10");
+    expect(schedule(novo, 4, "2026-11-09").due).toBe("2026-11-12");
+  });
+  it("acertos seguidos aumentam o intervalo", () => {
+    const a = schedule(novo, 3, "2026-11-09");
+    const b = schedule(a, 3, a.due);
+    const c = schedule(b, 3, b.due);
+    expect([a.interval_days, b.interval_days, c.interval_days]).toEqual([1, 6, 15]);
+  });
+  it("errar volta para amanhã e reduz a facilidade, sem passar de 1,3", () => {
+    const r = schedule({ interval_days: 40, ease: 1.35, reps: 5, lapses: 0 }, 1, "2026-11-09");
+    expect(r).toMatchObject({ interval_days: 1, reps: 0, lapses: 1, ease: 1.3, due: "2026-11-10" });
+  });
+  it("rótulo do intervalo", () => {
+    expect([intervalLabel(1), intervalLabel(6), intervalLabel(60), intervalLabel(365)]).toEqual(["1 dia", "6 dias", "2 meses", "1 ano"]);
+  });
+  it("exporta no formato pergunta::resposta do Obsidian", () => {
+    const md = cardsToMarkdown([{ question: "O que é SM-2?", answer: "Um algoritmo\nde revisão", note_id: "n1" }], (id) => (id === "n1" ? "Memória" : null));
+    expect(md).toContain("O que é SM-2?::Um algoritmo de revisão — [[Memória]]");
+  });
+});
 
 describe("perguntar", () => {
   it("tira palavras comuns e mantém acentos e termos úteis", () => {

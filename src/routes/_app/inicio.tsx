@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CalendarDays, Sparkles, Unlink } from "lucide-react";
+import { CalendarDays, GraduationCap, Sparkles, Unlink } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { cardsMetaQuery } from "@/lib/brain";
 import { useMemo } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AgendaList } from "@/components/brain/AgendaList";
@@ -35,7 +37,8 @@ function Home() {
   }, [notes, links, byId]);
   const today = todayISO();
   const upcoming = buildAgenda(tasks.filter((t) => !t.done), events.filter((e) => e.status === "confirmado"), today, addDaysISO(today, 2));
-  const overdue = tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
+  const dueCards = (useQuery(cardsMetaQuery).data ?? []).filter((c) => c.due <= today).length;
+  const overdue =tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
   const orphans = orphanNotes(notes, links).slice(0, 12);
   const recent = notes.slice(0, 8);
 
@@ -61,6 +64,11 @@ function Home() {
           <CalendarDays className="size-3" /> Hoje e próximos dias
           <Link to="/agenda" className="ml-auto normal-case tracking-normal text-primary">Ver agenda</Link>
         </h2>
+        {dueCards > 0 && (
+          <Link to="/estudar" className="mb-2 flex items-center gap-1.5 text-sm text-primary">
+            <GraduationCap className="size-4" /> {dueCards} flashcard{dueCards > 1 ? "s" : ""} para revisar hoje
+          </Link>
+        )}
         {overdue > 0 && (
           <Link to="/tarefas" className="mb-2 block text-sm text-destructive">{overdue} tarefa{overdue > 1 ? "s" : ""} atrasada{overdue > 1 ? "s" : ""}</Link>
         )}

@@ -2,6 +2,8 @@
 
 export const TOKEN_PREFIX = "scb_";
 export const PENDING_PROGRESS = "Na fila (Atalho)…";
+/** Resposta de sucesso. O Atalho do iPhone confere se ela "contém Capturado": não mude essa palavra. */
+export const CAPTURE_OK = "Capturado no seu Segundo Cérebro ✓";
 export const MAX_TEXT = 20000;
 export const HOURLY_LIMIT = 60;
 export const FILE_LIMITS = { audio: 25 * 1024 * 1024, imagem: 10 * 1024 * 1024, arquivo: 20 * 1024 * 1024 };

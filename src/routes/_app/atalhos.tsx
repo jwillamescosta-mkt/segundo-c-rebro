@@ -119,11 +119,13 @@ function ShortcutsPage() {
           title="Botão de Ação: gravar no cérebro"
           steps={[
             "Ação “Gravar Áudio” (desmarque “Mostrar ao executar” se quiser começar direto).",
+            "Cópia de segurança: ação “Salvar Arquivo” com o Áudio Gravado; desligue “Perguntar Onde Salvar” e escolha iCloud Drive › Segundo Cérebro. Assim nenhum áudio se perde, mesmo sem internet ou com o app fora do ar.",
             "Ação “Obter Conteúdo do URL”: URL = o endereço acima; Método = POST.",
             "Cabeçalhos: Authorization = Bearer SEU_TOKEN.",
             "Corpo da Solicitação = Formulário; campo “arquivo” do tipo Arquivo = Áudio Gravado.",
-            "Ação “Mostrar Notificação” com o Conteúdo do URL (opcional).",
+            "Confirmação: ação “Se” › Conteúdo do URL › contém › Capturado. Dentro do Se: “Mostrar Notificação” = Salvo no cérebro ✓. Em “Senão”: “Mostrar Alerta” = Não foi salvo. O áudio está em Arquivos › Segundo Cérebro; reenvie depois.",
             "Ajustes → Botão de Ação → Atalho → escolha este atalho.",
+            "Para reenviar um áudio guardado: abra-o em Arquivos › Segundo Cérebro › Compartilhar › seu atalho “Compartilhar” (ou anexe no app).",
           ]}
         />
         <Guide

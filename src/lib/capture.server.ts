@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import {
+  CAPTURE_OK,
   FILE_LIMITS,
   HOURLY_LIMIT,
   MAX_TEXT,
@@ -80,7 +81,7 @@ export async function storeCapture({ uid, tokenId }: CaptureAuth, rawText: strin
     return fail(500, "Não consegui salvar a captura.");
   }
   await supabaseAdmin.from("capture_tokens").update({ last_used_at: new Date().toISOString() }).eq("id", tokenId);
-  return { status: 200, body: { ok: true, mensagem: "Capturado no seu Segundo Cérebro ✓" } };
+  return { status: 200, body: { ok: true, mensagem: CAPTURE_OK } };
 }
 
 /** POST /api/capturar — usado pelos Atalhos do iPhone. */

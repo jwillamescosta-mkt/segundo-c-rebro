@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extFromMime, firstUrl, kindFromMime, newToken, parseBearer, sha256Hex } from "@/lib/capture-utils";
+import { CAPTURE_OK, extFromMime, firstUrl, kindFromMime, newToken, parseBearer, sha256Hex } from "@/lib/capture-utils";
 
 describe("captura por Atalho", () => {
   it("token novo tem prefixo, 43 caracteres aleatórios e é aceito pelo parser", () => {
@@ -25,6 +25,9 @@ describe("captura por Atalho", () => {
     expect(kindFromMime("application/x-msdownload")).toBeNull();
     expect(extFromMime("audio/x-m4a", "bin")).toBe("m4a");
     expect(extFromMime("application/zip", "bin")).toBe("bin");
+  });
+  it("a resposta de sucesso contém \"Capturado\" (o Atalho do iPhone confere essa palavra)", () => {
+    expect(CAPTURE_OK).toContain("Capturado");
   });
   it("acha o primeiro link do texto compartilhado", () => {
     expect(firstUrl("veja isso https://exemplo.com/a?b=1 depois")).toBe("https://exemplo.com/a?b=1");

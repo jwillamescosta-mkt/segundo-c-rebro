@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { BrainCircuit, CalendarDays, GraduationCap, Home, ListTodo, Network, Plus, Search, Share2, FilePlus } from "lucide-react";
+import { BrainCircuit, CalendarDays, GraduationCap, Home, Target, ListTodo, Network, Plus, Search, Share2, FilePlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -69,6 +69,9 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem value="estudar" onSelect={() => go(() => navigate({ to: "/estudar" }))}>
             <GraduationCap /> Estudar
+          </CommandItem>
+          <CommandItem value="metas" onSelect={() => go(() => navigate({ to: "/metas" }))}>
+            <Target /> Metas
           </CommandItem>
           <CommandItem value="agenda" onSelect={() => go(() => navigate({ to: "/agenda" }))}>
             <CalendarDays /> Agenda

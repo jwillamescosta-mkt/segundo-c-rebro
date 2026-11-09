@@ -7,6 +7,7 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { goalPace, goalProgress, krProgress } from "@/lib/goals-utils";
 import { BRIEFING_HEADING, demoteHeadings, upsertBriefing } from "@/lib/briefing-utils";
 import { cardsToMarkdown, intervalLabel, schedule } from "@/lib/study-utils";
 import {
@@ -18,6 +19,23 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("metas", () => {
+  it("progresso é a média dos resultados-chave, limitado a 100%", () => {
+    expect(goalProgress([{ current: 5, target: 10 }, { current: 30, target: 20 }])).toBe(0.75);
+  });
+  it("sem resultados-chave usa as tarefas ligadas", () => {
+    expect(goalProgress([], [{ done: true }, { done: false }])).toBe(0.5);
+    expect(goalProgress([])).toBe(0);
+  });
+  it("alvo zero não divide por zero", () => expect(krProgress({ current: 3, target: 0 })).toBe(0));
+  it("ritmo compara progresso com o tempo passado", () => {
+    expect(goalPace(0.5, "2026-01-01", "2026-01-11", "2026-01-06")).toBe("no ritmo");
+    expect(goalPace(0.1, "2026-01-01", "2026-01-11", "2026-01-09")).toBe("atrasada");
+    expect(goalPace(0.9, "2026-01-01", "2026-01-11", "2026-01-03")).toBe("adiantada");
+    expect(goalPace(0.9, "2026-01-01", null, "2026-01-03")).toBeNull();
+  });
+});
 
 describe("briefing", () => {
   it("adiciona o briefing no fim do diário", () => {

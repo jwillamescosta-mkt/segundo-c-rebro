@@ -114,6 +114,80 @@ export type Database = {
           },
         ]
       }
+      goals: {
+        Row: {
+          area: string
+          created_at: string
+          id: string
+          status: string
+          target_date: string | null
+          title: string
+          user_id: string
+          why: string | null
+        }
+        Insert: {
+          area?: string
+          created_at?: string
+          id?: string
+          status?: string
+          target_date?: string | null
+          title: string
+          user_id?: string
+          why?: string | null
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          id?: string
+          status?: string
+          target_date?: string | null
+          title?: string
+          user_id?: string
+          why?: string | null
+        }
+        Relationships: []
+      }
+      key_results: {
+        Row: {
+          created_at: string
+          current: number
+          goal_id: string
+          id: string
+          target: number
+          title: string
+          unit: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current?: number
+          goal_id: string
+          id?: string
+          target?: number
+          title: string
+          unit?: string | null
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          current?: number
+          goal_id?: string
+          id?: string
+          target?: number
+          title?: string
+          unit?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_results_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       links: {
         Row: {
           confidence: number | null
@@ -246,6 +320,7 @@ export type Database = {
           done: boolean
           due_date: string | null
           due_time: string | null
+          goal_id: string | null
           id: string
           note_id: string | null
           text: string
@@ -256,6 +331,7 @@ export type Database = {
           done?: boolean
           due_date?: string | null
           due_time?: string | null
+          goal_id?: string | null
           id?: string
           note_id?: string | null
           text: string
@@ -266,6 +342,7 @@ export type Database = {
           done?: boolean
           due_date?: string | null
           due_time?: string | null
+          goal_id?: string | null
           id?: string
           note_id?: string | null
           text?: string

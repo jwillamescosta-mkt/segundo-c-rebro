@@ -88,6 +88,54 @@ export const eventsQuery = queryOptions({
     fetchAll<CalendarEvent>((a, b) => supabase.from("events").select("*").order("starts_at", { ascending: true }).range(a, b) as never),
 });
 
+export type Goal = Tables<"goals">;
+export type KeyResult = Tables<"key_results">;
+
+export const goalsQuery = queryOptions({
+  queryKey: ["goals"],
+  queryFn: async () => {
+    const [g, k] = await Promise.all([
+      supabase.from("goals").select("*").order("created_at", { ascending: false }),
+      supabase.from("key_results").select("*").order("created_at"),
+    ]);
+    if (g.error) throw g.error;
+    if (k.error) throw k.error;
+    return { goals: g.data as Goal[], krs: k.data as KeyResult[] };
+  },
+});
+
+export async function createGoal(input: Pick<Goal, "title" | "why" | "area" | "target_date">, krs: Pick<KeyResult, "title" | "target" | "unit">[]) {
+  const user_id = await currentUserId();
+  const { data, error } = await supabase.from("goals").insert({ ...input, user_id }).select("id").single();
+  if (error) throw error;
+  if (krs.length) {
+    const { error: e2 } = await supabase.from("key_results").insert(krs.map((k) => ({ ...k, goal_id: data.id, user_id })));
+    if (e2) throw e2;
+  }
+  return data.id;
+}
+
+export async function updateGoal(id: string, patch: Partial<Pick<Goal, "status" | "title" | "why" | "target_date">>) {
+  const { error } = await supabase.from("goals").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteGoal(id: string) {
+  const { error } = await supabase.from("goals").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function setKrCurrent(id: string, current: number) {
+  const { error } = await supabase.from("key_results").update({ current }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function addGoalTasks(goalId: string, items: { text: string; due_date: string | null }[]) {
+  const user_id = await currentUserId();
+  const { error } = await supabase.from("tasks").insert(items.map((t) => ({ ...t, goal_id: goalId, user_id })));
+  if (error) throw error;
+}
+
 export type Card = Tables<"cards">;
 export type CardMeta = Pick<Card, "id" | "note_id" | "due" | "reps" | "last_reviewed_at">;
 

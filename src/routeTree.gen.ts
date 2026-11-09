@@ -17,6 +17,7 @@ import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilha
 import { Route as AppEstudarRouteImport } from './routes/_app/estudar'
 import { Route as AppGrafoRouteImport } from './routes/_app/grafo'
 import { Route as AppInicioRouteImport } from './routes/_app/inicio'
+import { Route as AppMetasRouteImport } from './routes/_app/metas'
 import { Route as AppNotasRouteImport } from './routes/_app/notas'
 import { Route as AppPerguntarRouteImport } from './routes/_app/perguntar'
 import { Route as AppTarefasRouteImport } from './routes/_app/tarefas'
@@ -62,6 +63,11 @@ const AppInicioRoute = AppInicioRouteImport.update({
   path: '/inicio',
   getParentRoute: () => AppRoute,
 } as any)
+const AppMetasRoute = AppMetasRouteImport.update({
+  id: '/metas',
+  path: '/metas',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNotasRoute = AppNotasRouteImport.update({
   id: '/notas',
   path: '/notas',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
   '/inicio': typeof AppInicioRoute
+  '/metas': typeof AppMetasRoute
   '/notas': typeof AppNotasRoute
   '/perguntar': typeof AppPerguntarRoute
   '/tarefas': typeof AppTarefasRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
   '/inicio': typeof AppInicioRoute
+  '/metas': typeof AppMetasRoute
   '/notas': typeof AppNotasRoute
   '/perguntar': typeof AppPerguntarRoute
   '/tarefas': typeof AppTarefasRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/_app/estudar': typeof AppEstudarRoute
   '/_app/grafo': typeof AppGrafoRoute
   '/_app/inicio': typeof AppInicioRoute
+  '/_app/metas': typeof AppMetasRoute
   '/_app/notas': typeof AppNotasRoute
   '/_app/perguntar': typeof AppPerguntarRoute
   '/_app/tarefas': typeof AppTarefasRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/estudar'
     | '/grafo'
     | '/inicio'
+    | '/metas'
     | '/notas'
     | '/perguntar'
     | '/tarefas'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/estudar'
     | '/grafo'
     | '/inicio'
+    | '/metas'
     | '/notas'
     | '/perguntar'
     | '/tarefas'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/_app/estudar'
     | '/_app/grafo'
     | '/_app/inicio'
+    | '/_app/metas'
     | '/_app/notas'
     | '/_app/perguntar'
     | '/_app/tarefas'
@@ -243,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInicioRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/metas': {
+      id: '/_app/metas'
+      path: '/metas'
+      fullPath: '/metas'
+      preLoaderRoute: typeof AppMetasRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/notas': {
       id: '/_app/notas'
       path: '/notas'
@@ -287,6 +306,7 @@ interface AppRouteChildren {
   AppEstudarRoute: typeof AppEstudarRoute
   AppGrafoRoute: typeof AppGrafoRoute
   AppInicioRoute: typeof AppInicioRoute
+  AppMetasRoute: typeof AppMetasRoute
   AppNotasRoute: typeof AppNotasRoute
   AppPerguntarRoute: typeof AppPerguntarRoute
   AppTarefasRoute: typeof AppTarefasRoute
@@ -299,6 +319,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEstudarRoute: AppEstudarRoute,
   AppGrafoRoute: AppGrafoRoute,
   AppInicioRoute: AppInicioRoute,
+  AppMetasRoute: AppMetasRoute,
   AppNotasRoute: AppNotasRoute,
   AppPerguntarRoute: AppPerguntarRoute,
   AppTarefasRoute: AppTarefasRoute,

@@ -3,11 +3,12 @@ import { transcribeWithFallbacks } from "./transcribe.server";
 import { describeError } from "./audio-utils";
 import JSZip from "jszip";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { NOTE_TYPE_VALUES, extractHashtags, linkStatusForConfidence, mergeTags, normalizeTitle } from "./markdown-utils";
 import { syncWikilinks } from "./wikilink-sync";
 import { cleanTime, eventStatusForConfidence, localToTimestamptz } from "./tasks-utils";
-import { applySplit, gatherContext } from "./split.server";
+import { SPLIT_KEY } from "./split-utils";
+import { withSmart } from "./smart-utils";
 
 const MODEL = "google/gemini-3.8-flash" as const;
 const MAX_TEXT = 30000;
@@ -177,8 +178,6 @@ interface Analysis {
   tags: string[];
   tasks: { text: string; due_date: string | null; due_time?: string | null }[];
   events?: { title: string; date: string; start_time: string | null; end_time: string | null; confidence: number }[];
-  topics?: { title: string; type: string; summary: string; content: string; tags: string[]; confidence: number }[];
-  refs?: { name: string; type: string; relation: string; confidence: number }[];
   entities: { pessoas?: string[]; clientes?: string[]; projetos?: string[] };
 }
 
@@ -216,41 +215,6 @@ const analysisSchema = {
         required: ["title", "date", "start_time", "end_time", "confidence"],
       },
     },
-    topics: {
-      type: "array",
-      description:
-        "Preencha SOMENTE se a captura trata de 2 ou mais assuntos realmente distintos (ex.: filho + trabalho + saúde). Um item por assunto. Deixe vazio se for um assunto só.",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string", description: "Título curto do assunto." },
-          type: { type: "string", enum: NOTE_TYPE_VALUES },
-          summary: { type: "string", description: "Uma frase." },
-          content: {
-            type: "string",
-            description:
-              "O trecho da captura sobre este assunto, com as palavras do usuário, completado com o contexto necessário (quem é 'ela', de qual projeto se trata). Use [[Título exato]] para pessoas, clientes e projetos já cadastrados.",
-          },
-          tags: { type: "array", items: { type: "string" } },
-          confidence: { type: "number", minimum: 0, maximum: 1, description: "Certeza de que este é um assunto à parte." },
-        },
-        required: ["title", "type", "summary", "content", "tags", "confidence"],
-      },
-    },
-    refs: {
-      type: "array",
-      description: "Pessoas, clientes e projetos citados na captura (inclusive por pronome ou apelido, resolvidos pelo contexto).",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string", description: "Nome como está cadastrado; se for novo, o nome completo mais usado." },
-          type: { type: "string", enum: ["pessoa", "cliente", "projeto"] },
-          relation: { type: "string", description: "Papel em relação ao usuário ou à captura (ex.: 'esposa', 'filho', 'cliente de marketing', 'projeto do trabalho')." },
-          confidence: { type: "number", minimum: 0, maximum: 1 },
-        },
-        required: ["name", "type", "relation", "confidence"],
-      },
-    },
     entities: {
       type: "object",
       properties: {
@@ -260,7 +224,7 @@ const analysisSchema = {
       },
     },
   },
-  required: ["title", "summary", "type", "tags", "tasks", "topics", "refs", "entities"],
+  required: ["title", "summary", "type", "tags", "tasks", "entities"],
 };
 
 const linksSchema = {
@@ -282,7 +246,11 @@ const linksSchema = {
   required: ["links"],
 };
 
-function words(s: string) {
+function splitFrom(entities: unknown) {
+  return ((entities as Record<string, unknown> | null)?.[SPLIT_KEY] as string | undefined) ?? null;
+}
+
+export function words(s: string) {
   return new Set(
     s
       .toLocaleLowerCase("pt-BR")
@@ -364,19 +332,12 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
     // Analysis
     await setProgress(db, noteId, "Analisando…");
     const today = todayContext();
-    // Primeira passada: o que o app já sabe (perfil, pessoas, projetos e notas parecidas). Falha aqui não bloqueia a análise.
-    const ctx = await gatherContext(db, noteId, content).catch((e) => {
-      console.warn("contexto indisponível", e);
-      return { prompt: "", entities: [], known: new Set<string>() };
-    });
     const analysis = await chatTool<Analysis>(
       `Você organiza um segundo cérebro pessoal em português do Brasil. Hoje é ${today.human} (${today.iso}). ` +
-        "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda, entidades, pessoas/clientes/projetos citados (refs) e, se for o caso, os assuntos distintos (topics). " +
+        "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda e entidades. " +
         "Só crie tarefas quando houver uma ação concreta a fazer. Só crie compromissos quando houver data identificável; não invente horários. " +
-        "Horários estão no fuso de Brasília. " +
-        "Use o PERFIL e os cadastros para entender o contexto: resolva pronomes, apelidos e papéis (quem é 'ela', 'o chefe', 'o pequeno') e prefira SEMPRE o título exato de quem já está cadastrado em vez de criar um nome novo. " +
-        "Em topics, separe apenas assuntos que fariam sentido como notas independentes (ex.: um filho, um cliente e uma tarefa de saúde na mesma fala); NUNCA fragmente um assunto único, e não invente nada que o usuário não disse.",
-      `${ctx.prompt ? ctx.prompt + "\n\n---\n\n" : ""}Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
+        "Horários estão no fuso de Brasília.",
+      `Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
       "salvar_analise",
       analysisSchema,
     );
@@ -393,7 +354,8 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
         summary: analysis.summary,
         type: note.type === "diario" ? "diario" : type,
         tags,
-        entities: analysis.entities ?? {},
+        // Marca a nota para a passada inteligente em lote (separar em pontos, pessoas/projetos e ligações).
+        entities: withSmart({ ...(analysis.entities ?? {}), ...(splitFrom(note.entities) ? { [SPLIT_KEY]: splitFrom(note.entities) } : {}) }, "pendente") as Json,
       })
       .eq("id", noteId);
 
@@ -435,88 +397,6 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
       }];
     });
     if (eventRows.length) await db.from("events").insert(eventRows);
-
-    // Segunda passada: pessoas/projetos como nós únicos e capturas com vários assuntos viram vários pontos.
-    // Não é crítico: se falhar, a nota segue como uma nota só.
-    await setProgress(db, noteId, "Separando assuntos…");
-    await applySplit(db, {
-      noteId,
-      userId,
-      sourceTitle: title,
-      sourceType: note.type === "diario" ? "diario" : type,
-      topics: analysis.topics,
-      refs: analysis.refs,
-      entities: ctx.entities,
-      known: ctx.known,
-    }).catch((e) => console.warn("separação falhou", noteId, e));
-
-    // Connections
-    await setProgress(db, noteId, "Encontrando conexões…");
-    const { data: others } = await db
-      .from("notes")
-      .select("id,title,summary,tags,content,updated_at")
-      .neq("id", noteId)
-      .order("updated_at", { ascending: false })
-      .limit(1000);
-    const myWords = words(`${title} ${analysis.summary} ${content.slice(0, 4000)}`);
-    const myTags = new Set(tags);
-    // Com muitas notas, as 1000 recentes não bastam: a busca de texto completo traz candidatas de todo o histórico.
-    const pool = [...(others ?? [])];
-    const ftsIds = new Set<string>();
-    const terms = [...new Set([...tags, ...words(title)])].slice(0, 12);
-    if (terms.length) {
-      const { data: hits } = await db.rpc("search_notes", { q: terms.join(" or ") });
-      const known = new Set(pool.map((o) => o.id));
-      const missing = (hits ?? []).map((h) => h.id).filter((id) => id !== noteId && !known.has(id));
-      (hits ?? []).forEach((h) => ftsIds.add(h.id));
-      if (missing.length) {
-        const { data: extra } = await db.from("notes").select("id,title,summary,tags,content,updated_at").in("id", missing);
-        pool.push(...(extra ?? []));
-      }
-    }
-    const scored = pool.map((o, i) => {
-      const ot = o.tags ?? [];
-      const tagScore = ot.filter((t) => myTags.has(t)).length * 3;
-      const ow = words(`${o.title} ${o.summary ?? ""} ${(o.content ?? "").slice(0, 600)}`);
-      let w = 0;
-      for (const x of ow) if (myWords.has(x)) w++;
-      return { o, score: tagScore + Math.min(w, 15) + (i < 30 ? 1 : 0) + (ftsIds.has(o.id) ? 4 : 0) };
-    });
-    const candidates = scored.sort((a, b) => b.score - a.score).slice(0, 150).map((s) => s.o);
-
-    if (candidates.length) {
-      const list = candidates
-        .map((c) => JSON.stringify({ id: c.id, titulo: c.title, resumo: (c.summary ?? "").slice(0, 200), tags: c.tags }))
-        .join("\n");
-      const result = await chatTool<{ links: { id: string; reason: string; confidence: number }[] }>(
-        "Você encontra conexões significativas entre notas de um segundo cérebro. Escolha até 6 notas realmente relacionadas à nota principal, com motivo curto em português e confiança de 0 a 1. Não force conexões fracas.",
-        `NOTA PRINCIPAL\nTítulo: ${title}\nResumo: ${analysis.summary}\nTags: ${tags.join(", ")}\n\nNOTAS EXISTENTES (uma por linha):\n${list}`,
-        "sugerir_ligacoes",
-        linksSchema,
-      );
-      const validIds = new Set(candidates.map((c) => c.id));
-      const { data: existing } = await db
-        .from("links")
-        .select("source_note_id,target_note_id")
-        .or(`source_note_id.eq.${noteId},target_note_id.eq.${noteId}`);
-      const linked = new Set((existing ?? []).map((l) => (l.source_note_id === noteId ? l.target_note_id : l.source_note_id)));
-      const rows = (result.links ?? [])
-        .filter((l) => validIds.has(l.id) && !linked.has(l.id))
-        .slice(0, 6)
-        .map((l) => {
-          const confidence = Math.max(0, Math.min(1, Number(l.confidence) || 0));
-          return {
-            user_id: userId,
-            source_note_id: noteId,
-            target_note_id: l.id,
-            kind: "ia",
-            reason: (l.reason ?? "").slice(0, 300),
-            confidence,
-            status: linkStatusForConfidence(confidence),
-          };
-        });
-      if (rows.length) await db.from("links").insert(rows);
-    }
 
     await syncWikilinks(db, userId, noteId, content);
     await db.from("notes").update({ status: "pronta", progress: null, error_message: null }).eq("id", noteId);

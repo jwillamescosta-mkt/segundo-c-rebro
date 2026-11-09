@@ -27,16 +27,16 @@ async function entityNotes(db: DB): Promise<EntityNote[]> {
 }
 
 /** Primeira passada: o que o app já sabe (perfil, pessoas/projetos e notas parecidas) para a IA entender o contexto. */
-export async function gatherContext(db: DB, noteId: string, text: string) {
+export async function gatherContext(db: DB, noteId: string | null, text: string) {
   const [{ data: profile }, entities, { data: rules }] = await Promise.all([
     db.from("notes").select("content").eq("title", PROFILE_TITLE).maybeSingle(),
     entityNotes(db),
     // Notas em que o próprio usuário explica à IA como organizar (ex.: "Diretrizes de Vinculação: ...").
-    db.from("notes").select("title,content").ilike("title", "diretriz%").neq("id", noteId).limit(5),
+    (noteId ? db.from("notes").select("title,content").ilike("title", "diretriz%").neq("id", noteId) : db.from("notes").select("title,content").ilike("title", "diretriz%")).limit(5),
   ]);
   const terms = askTerms(text.slice(0, 3000));
   const { data: hits } = terms.length ? await db.rpc("search_notes", { q: terms.join(" or ") }) : { data: [] };
-  const relatedIds = (hits ?? []).map((h) => h.id).filter((id) => id !== noteId).slice(0, 8);
+  const relatedIds = (hits ?? []).map((h) => h.id).filter((id) => id !== noteId).slice(0, 12);
   const { data: related } = relatedIds.length ? await db.from("notes").select("title,summary").in("id", relatedIds) : { data: [] };
 
   const profileText = profileForPrompt(profile?.content ?? "");
@@ -84,7 +84,8 @@ export interface SplitInput {
  */
 export async function applySplit(db: DB, input: SplitInput) {
   const { noteId, userId, sourceTitle } = input;
-  const known = new Set(input.known);
+  // `known` e `entities` são compartilhados: o que for criado para uma nota do lote já vale para as próximas.
+  const known = input.known;
   const byTitle = new Map(input.entities.map((e) => [normalizeTitle(e.title), e]));
 
   // 1) Pessoas, clientes e projetos
@@ -110,6 +111,7 @@ export async function applySplit(db: DB, input: SplitInput) {
       if (data) {
         target = data;
         byTitle.set(key, data);
+        input.entities.push(data);
         known.add(key);
       }
     }

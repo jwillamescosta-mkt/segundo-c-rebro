@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { AgendaList } from "@/components/brain/AgendaList";
 import { ConnectionSpark } from "@/components/brain/ConnectionSpark";
 import { BriefingButtons } from "@/components/brain/BriefingButtons";
+import { SmartPassCard } from "@/components/brain/SmartPassCard";
 import { Reveal, StaggerItem, StaggerList } from "@/components/brain/motion";
 import { addDaysISO, buildAgenda, formatDayBR, todayISO } from "@/lib/tasks-utils";
 import { CaptureBox } from "@/components/brain/CaptureBox";
@@ -47,6 +48,7 @@ function Home() {
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
       <CaptureBox variant={isMobile ? "mobile" : "inline"} />
       <Reveal>
+        <div className="mb-2"><SmartPassCard /></div>
         <BriefingButtons />
         <Link to="/atalhos" className="mt-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-primary md:hidden">
           <Smartphone className="size-3.5" /> Capturar pelo Botão de Ação, Siri e Compartilhar

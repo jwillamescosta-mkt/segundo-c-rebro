@@ -7,6 +7,7 @@ import {
   safeHeadline,
 } from "@/lib/markdown-utils";
 import { askTerms } from "@/lib/ask-utils";
+import { isSmartPending, shouldAutoRun, withSmart } from "@/lib/smart-utils";
 import { audioMime, describeError } from "@/lib/audio-utils";
 import { buildChildContent, cleanRefs, cleanTopics, profileForPrompt, sanitizeWikilinks } from "@/lib/split-utils";
 import { goalPace, goalProgress, krProgress } from "@/lib/goals-utils";
@@ -21,6 +22,25 @@ import {
   localTime,
   localToTimestamptz,
 } from "@/lib/tasks-utils";
+
+describe("lote inteligente", () => {
+  const n = (over: Record<string, unknown> = {}) => ({ entities: { smart_pass: "pendente" }, status: "pronta", type: "ideia", ...over });
+  it("só espera a passada quem está pronta, não é diário e tem o marcador pendente", () => {
+    expect(isSmartPending(n())).toBe(true);
+    expect(isSmartPending(n({ entities: { smart_pass: "feito" } }))).toBe(false);
+    expect(isSmartPending(n({ entities: {} }))).toBe(false);
+    expect(isSmartPending(n({ status: "processando" }))).toBe(false);
+    expect(isSmartPending(n({ type: "diario" }))).toBe(false);
+  });
+  it("marcador preserva as outras chaves e pode ser removido", () => {
+    expect(withSmart({ split_from: "x", pessoas: ["a"] }, "pendente")).toEqual({ split_from: "x", pessoas: ["a"], smart_pass: "pendente" });
+    expect(withSmart({ smart_pass: "pendente", a: 1 }, null)).toEqual({ a: 1 });
+    expect(withSmart(null, "feito")).toEqual({ smart_pass: "feito" });
+  });
+  it("roda sozinho só com limite ligado e fila suficiente", () => {
+    expect([shouldAutoRun(9, 10), shouldAutoRun(10, 10), shouldAutoRun(50, 0), shouldAutoRun(1, 1)]).toEqual([false, true, false, true]);
+  });
+});
 
 describe("áudio", () => {
   it("MIME por extensão: iPhone m4a e webm do navegador", () => {

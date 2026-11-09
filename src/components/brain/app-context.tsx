@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PENDING_PROGRESS } from "@/lib/capture-utils";
+import { smartPassFn } from "@/lib/smart.functions";
+import { DEFAULT_THRESHOLD, isSmartPending, readThreshold, shouldAutoRun, writeThreshold } from "@/lib/smart-utils";
 import { saveCapture } from "@/lib/capture-client";
 import { flushQueue } from "@/lib/offline-queue";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +21,12 @@ interface Ctx {
   paletteOpen: boolean;
   setPaletteOpen: (v: boolean) => void;
   runProcess: (noteId: string, mode?: "full" | "reanalyze") => Promise<void>;
+  /** Notas aguardando a passada inteligente em lote (separar, reconhecer pessoas/projetos e conectar). */
+  pendingSmart: number;
+  smartBusy: boolean;
+  runSmart: (noteIds?: string[]) => Promise<void>;
+  threshold: number;
+  setThreshold: (n: number) => void;
 }
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -204,6 +212,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const r = await process({ data: { noteId, mode } });
         if (!r.ok) toast.error(r.error);
+        // Reanalisar é um pedido explícito: faz a conexão inteligente desta nota agora, sem esperar o lote.
+        else if (mode === "reanalyze") await runSmartRef.current([noteId]);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Falha ao processar a nota.");
       } finally {
@@ -219,8 +229,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const runProcessRef = useRef(runProcess);
   runProcessRef.current = runProcess;
 
+  // Passada inteligente em lote: roda sozinha a cada N notas (ou só manual) e quando o usuário pede.
+  const smartFn = useServerFn(smartPassFn);
+  const allNotes = useQuery(notesQuery).data;
+  const pendingSmart = allNotes?.filter(isSmartPending).length ?? 0;
+  const busyNow = allNotes?.some((n) => n.status === "processando") ?? false;
+  const [threshold, setThresholdState] = useState(DEFAULT_THRESHOLD);
+  const [smartBusy, setSmartBusy] = useState(false);
+  const smartRunning = useRef(false);
+  const blockedAt = useRef<number | null>(null); // após uma falha, só tenta sozinho de novo quando entrar mais nota na fila
+  useEffect(() => setThresholdState(readThreshold()), []);
+  const setThreshold = useCallback((n: number) => {
+    setThresholdState(n);
+    writeThreshold(n);
+  }, []);
+
+  const runSmart = useCallback(
+    async (noteIds?: string[]) => {
+      if (smartRunning.current) return;
+      smartRunning.current = true;
+      setSmartBusy(true);
+      try {
+        const r = await smartFn({ data: noteIds ? { noteIds } : {} });
+        if (!r.ok) {
+          blockedAt.current = pendingRef.current;
+          toast.error(r.error);
+        } else if (r.processed) {
+          blockedAt.current = null;
+          toast.success(`Conexão inteligente: ${r.processed} nota${r.processed > 1 ? "s" : ""}, ${r.links} ligaç${r.links === 1 ? "ão" : "ões"}${r.points ? ` e ${r.points} ponto${r.points > 1 ? "s" : ""} novo${r.points > 1 ? "s" : ""}` : ""}.`);
+        }
+      } catch (e) {
+        blockedAt.current = pendingRef.current;
+        toast.error(e instanceof Error ? e.message : "Falha na conexão inteligente.");
+      } finally {
+        smartRunning.current = false;
+        setSmartBusy(false);
+        invalidateBrain(qc);
+      }
+    },
+    [smartFn, qc],
+  );
+  const pendingRef = useRef(0);
+  pendingRef.current = pendingSmart;
+  const runSmartRef = useRef(runSmart);
+  runSmartRef.current = runSmart;
+
+  useEffect(() => {
+    if (!shouldAutoRun(pendingSmart, threshold) || busyNow || smartRunning.current) return;
+    if (blockedAt.current !== null && pendingSmart <= blockedAt.current) return;
+    void runSmart();
+  }, [pendingSmart, threshold, busyNow, runSmart]);
+
   return (
-    <AppCtx.Provider value={{ tabs, closeTab, captureOpen, setCaptureOpen, paletteOpen, setPaletteOpen, runProcess }}>
+    <AppCtx.Provider value={{ tabs, closeTab, captureOpen, setCaptureOpen, paletteOpen, setPaletteOpen, runProcess, pendingSmart, smartBusy, runSmart, threshold, setThreshold }}>
       {children}
     </AppCtx.Provider>
   );

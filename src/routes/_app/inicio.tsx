@@ -11,6 +11,9 @@ import { SmartPassCard } from "@/components/brain/SmartPassCard";
 import { Reveal, StaggerItem, StaggerList } from "@/components/brain/motion";
 import { addDaysISO, buildAgenda, formatDayBR, todayISO } from "@/lib/tasks-utils";
 import { CaptureBox } from "@/components/brain/CaptureBox";
+import { BrainPulse } from "@/components/brain/BrainPulse";
+import { brainPulse } from "@/lib/pulse-utils";
+import { useAuth } from "@/hooks/use-auth";
 import { orphanNotes, useBrain } from "@/components/brain/app-context";
 import { TypeIcon } from "@/components/brain/type-meta";
 
@@ -38,6 +41,11 @@ function Home() {
     return null;
   }, [notes, links, byId]);
   const today = todayISO();
+  const pulse = useMemo(() => brainPulse(notes, today), [notes, today]);
+  const accepted = useMemo(() => links.filter((l) => l.status === "aceita").length, [links]);
+  const { user } = useAuth();
+  const fullName = (user?.user_metadata as { full_name?: string; name?: string } | undefined);
+  const firstName = (fullName?.full_name ?? fullName?.name ?? "").trim().split(/\s+/)[0] || null;
   const upcoming = buildAgenda(tasks.filter((t) => !t.done), events.filter((e) => e.status === "confirmado"), today, addDaysISO(today, 2));
   const dueCards = (useQuery(cardsMetaQuery).data ?? []).filter((c) => c.due <= today).length;
   const overdue =tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
@@ -46,6 +54,7 @@ function Home() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
+      <BrainPulse name={firstName} total={notes.length} connections={accepted} pulse={pulse} />
       <CaptureBox variant={isMobile ? "mobile" : "inline"} />
       <Reveal>
         <div className="mb-2"><SmartPassCard /></div>

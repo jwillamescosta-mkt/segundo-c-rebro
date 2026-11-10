@@ -77,7 +77,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "Seu segundo cérebro pessoal: capture, conecte e reencontre ideias com IA." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "theme-color", content: "#1e1e1e" },
+      { name: "theme-color", content: "#0c1124" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "Cérebro" },
       // App instalado no iPhone: conteúdo vai até o topo; o AppShell reserva a área da Dynamic Island.

@@ -56,34 +56,34 @@
   --color-sidebar-ring: var(--ring);
 }
 
-/* Dark is the default theme (Obsidian-like). */
+/* Dark is the default theme: "cosmos", o azul profundo do grafo 3D. --background = theme-color do iPhone (#0c1124). */
 :root {
   --radius: 6px;
-  --background: oklch(0.235 0 0); /* #1e1e1e */
-  --panel: oklch(0.262 0.001 286); /* #252526 */
-  --panel-2: oklch(0.29 0.002 286);
+  --background: #0c1124;
+  --panel: #121935;
+  --panel-2: #182042;
   --foreground: oklch(0.89 0.004 260);
-  --card: oklch(0.262 0.001 286);
+  --card: #121935;
   --card-foreground: oklch(0.89 0.004 260);
-  --popover: oklch(0.27 0.002 286);
+  --popover: #141b3a;
   --popover-foreground: oklch(0.89 0.004 260);
   --primary: oklch(0.606 0.219 293); /* #8b5cf6 */
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.3 0.002 286);
+  --secondary: #1b2447;
   --secondary-foreground: oklch(0.89 0.004 260);
-  --muted: oklch(0.29 0.002 286);
-  --muted-foreground: oklch(0.66 0.006 260);
-  --accent: oklch(0.32 0.03 293);
+  --muted: #182042;
+  --muted-foreground: oklch(0.72 0.03 262);
+  --accent: oklch(0.33 0.08 290);
   --accent-foreground: oklch(0.95 0.01 293);
   --destructive: oklch(0.66 0.19 22);
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.78 0.16 150);
   --warning: oklch(0.8 0.14 75);
-  --border: oklch(0.321 0 0); /* #333 */
-  --input: oklch(0.34 0 0);
+  --border: #262f55;
+  --input: #2b3560;
   --ring: oklch(0.606 0.219 293);
   --highlight: oklch(0.606 0.219 293 / 30%);
-  --graph-bg: oklch(0.2 0 0);
+  --graph-bg: #090d1f;
   --graph-link: oklch(0.5 0.01 260 / 55%);
   --graph-link-suggested: oklch(0.7 0.12 293 / 45%);
   --graph-label: oklch(0.85 0.004 260);
@@ -269,4 +269,14 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .spark-card { animation: none; }
+}
+
+/* Aurora: luz difusa atrás do conteúdo (só no tema escuro). Gradiente fixo, sem animação: custo zero de bateria. */
+.aurora {
+  background-image:
+    radial-gradient(60rem 38rem at 88% -12%, color-mix(in oklab, var(--color-primary) 16%, transparent), transparent 62%),
+    radial-gradient(48rem 34rem at -12% 112%, rgb(79 157 255 / 0.1), transparent 62%);
+}
+.light .aurora {
+  background-image: none;
 }

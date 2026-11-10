@@ -169,9 +169,9 @@ function Shell({ children }: { children: ReactNode }) {
 
   if (isMobile) {
     return (
-      <div className="flex h-[100dvh] flex-col bg-background pt-[env(safe-area-inset-top)]">
+      <div className="aurora flex h-[100dvh] flex-col bg-background pt-[env(safe-area-inset-top)]">
         {/* Faixa atrás da barra de status/Dynamic Island: escura, para o texto branco do iOS ficar legível em qualquer tema */}
-        <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[env(safe-area-inset-top)] bg-[#1e1e1e]" />
+        <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[env(safe-area-inset-top)] bg-[#0c1124]" />
         <main className="min-h-0 flex-1 overflow-y-auto">{page}</main>
         <MobileNav />
         <CaptureDialog />
@@ -181,7 +181,7 @@ function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="h-screen bg-background">
+    <div className="aurora h-screen bg-background">
       <ResizablePanelGroup orientation="horizontal" id="sc-layout">
         <ResizablePanel id="left" defaultSize="18" minSize="200px" maxSize="35">
           <Sidebar />

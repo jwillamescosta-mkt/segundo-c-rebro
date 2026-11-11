@@ -21,6 +21,7 @@ export type Database = {
           last_used_at: string | null
           name: string
           revoked_at: string | null
+          scope: string
           token_hash: string
           user_id: string
         }
@@ -30,6 +31,7 @@ export type Database = {
           last_used_at?: string | null
           name: string
           revoked_at?: string | null
+          scope?: string
           token_hash: string
           user_id?: string
         }
@@ -39,6 +41,7 @@ export type Database = {
           last_used_at?: string | null
           name?: string
           revoked_at?: string | null
+          scope?: string
           token_hash?: string
           user_id?: string
         }

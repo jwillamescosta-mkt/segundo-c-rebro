@@ -28,10 +28,11 @@ export async function authorizeCapture(token: string | null): Promise<CaptureAut
   if (!token) return fail(401, "Token ausente ou inválido.");
   const { data: tok } = await supabaseAdmin
     .from("capture_tokens")
-    .select("id,user_id,revoked_at")
+    .select("id,user_id,revoked_at,scope")
     .eq("token_hash", await sha256Hex(token))
     .maybeSingle();
-  if (!tok || tok.revoked_at) return fail(401, "Token inválido ou revogado.");
+  // Token de agenda só lê a agenda: não serve para criar notas.
+  if (!tok || tok.revoked_at || tok.scope !== "captura") return fail(401, "Token inválido ou revogado.");
 
   // Limite simples por hora, contando as capturas externas (Atalho e conector).
   const since = new Date(Date.now() - 3600_000).toISOString();

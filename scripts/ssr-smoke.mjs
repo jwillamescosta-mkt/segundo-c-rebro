@@ -11,6 +11,7 @@ const ctx = { waitUntil() {}, passThroughOnException() {} };
 const checks = [
   ["/entrar", {}, 200],
   ["/api/capturar", { method: "POST", headers: { "content-type": "application/json" }, body: '{"texto":"x"}' }, 401],
+  ["/api/agenda/token-invalido.ics", {}, 404],
 ];
 let failed = false;
 for (const [path, init, want] of checks) {

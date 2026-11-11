@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { Check, Copy, KeyRound, MessageSquare, Mic, Share, Smartphone, Trash2, Wand2 } from "lucide-react";
+import { CalendarClock, Check, Copy, KeyRound, MessageSquare, Mic, Share, Smartphone, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/brain/motion";
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_app/atalhos")({
 const tokensQuery = {
   queryKey: ["capture_tokens"],
   queryFn: async () => {
-    const { data, error } = await supabase.from("capture_tokens").select("id,name,created_at,last_used_at,revoked_at").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from("capture_tokens").select("id,name,created_at,last_used_at,revoked_at,scope").order("created_at", { ascending: false });
     if (error) throw error;
     return data;
   },
@@ -34,6 +34,7 @@ function ShortcutsPage() {
   const tokens = useQuery(tokensQuery).data ?? [];
   const [name, setName] = useState("iPhone");
   const [fresh, setFresh] = useState<string | null>(null);
+  const [agendaToken, setAgendaToken] = useState<string | null>(null);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const endpoint = `${origin}/api/capturar`;
 
@@ -48,6 +49,23 @@ function ShortcutsPage() {
       toast.error(e instanceof Error ? e.message : "Não foi possível criar o token.");
     }
   }
+
+  /** Link da agenda: token de outro tipo ("agenda"), que só lê tarefas e compromissos. */
+  async function createAgenda() {
+    try {
+      const token = newToken();
+      const { error } = await supabase
+        .from("capture_tokens")
+        .insert({ user_id: await currentUserId(), name: "Agenda do iPhone", token_hash: await sha256Hex(token), scope: "agenda" });
+      if (error) throw error;
+      setAgendaToken(token);
+      qc.invalidateQueries({ queryKey: ["capture_tokens"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível criar o link da agenda.");
+    }
+  }
+  const agendaHttps = agendaToken ? `${origin}/api/agenda/${agendaToken}.ics` : "";
+  const agendaWebcal = agendaHttps.replace(/^https?:/, "webcal:");
 
   async function revoke(id: string) {
     if (!confirm("Revogar este token? Os Atalhos que usam ele param de funcionar.")) return;
@@ -96,6 +114,7 @@ function ShortcutsPage() {
             {active.map((t) => (
               <li key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <span className="flex-1">{t.name}</span>
+                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{t.scope === "agenda" ? "agenda" : "captura"}</span>
                 <span className="text-xs text-muted-foreground">{t.last_used_at ? `usado em ${formatDateBR(t.last_used_at)}` : `criado em ${formatDateBR(t.created_at)}`}</span>
                 <Button size="icon" variant="ghost" className="size-7 hover:text-destructive" aria-label={`Revogar ${t.name}`} onClick={() => revoke(t.id)}><Trash2 className="size-3.5" /></Button>
               </li>
@@ -162,6 +181,34 @@ function ShortcutsPage() {
             "O conector só cria notas: ele não lê nada do seu cérebro. Se o endereço vazar, revogue o token aqui.",
           ]}
         />
+      </Reveal>
+
+      <Reveal delay={0.2} className="space-y-3 rounded-xl border bg-panel p-4">
+        <h2 className="flex items-center gap-2 text-sm font-semibold"><CalendarClock className="size-4 text-primary" /> 5. Agenda do iPhone com alertas</h2>
+        <p className="text-xs text-muted-foreground">
+          Suas tarefas e compromissos aparecem no Calendário do iPhone. Com dia e hora: alerta 15 minutos antes. Só com dia: alerta às 8h.
+          O link só mostra a agenda (nunca o conteúdo das notas) e pode ser revogado na lista acima.
+        </p>
+        {agendaToken ? (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-2 rounded-lg border border-primary/50 bg-primary/5 p-3">
+            <a href={agendaWebcal} className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+              <CalendarClock className="size-4" /> Assinar no iPhone
+            </a>
+            <p className="text-xs text-muted-foreground">Ou copie o link (aparece só agora) e assine em Ajustes › Calendário › Contas › Adicionar Conta › Outra › Calendário Assinado:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 break-all rounded bg-background px-2 py-1 font-mono text-xs">{agendaHttps}</code>
+              <Button size="sm" variant="outline" onClick={() => copy(agendaHttps)} className="gap-1"><Copy className="size-3.5" /> Copiar</Button>
+            </div>
+          </motion.div>
+        ) : (
+          <Button size="sm" onClick={createAgenda} className="gap-1"><CalendarClock className="size-4" /> Criar link da agenda</Button>
+        )}
+        <ol className="list-decimal space-y-1.5 pl-5 text-sm text-muted-foreground">
+          <li>Abra esta página no iPhone, toque em “Criar link da agenda” e depois em “Assinar no iPhone”. Confirme “Assinar”.</li>
+          <li>Na tela seguinte, desligue <b>“Remover Alertas”</b>. Sem isso o iPhone apaga os avisos da agenda assinada.</li>
+          <li>Em Ajustes › Calendário › Contas › Obter Dados, escolha a cada 15 minutos para as mudanças chegarem mais rápido.</li>
+          <li>Para ganhar alerta, capture tarefas com dia e hora: “Ligar para o Handerson amanhã às 15h”.</li>
+        </ol>
       </Reveal>
     </div>
   );

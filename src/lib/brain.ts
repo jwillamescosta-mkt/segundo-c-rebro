@@ -46,6 +46,12 @@ export const noteQuery = (id: string) =>
     },
   });
 
+export async function getNote(id: string) {
+  const { data, error } = await supabase.from("notes").select(NOTE_COLS).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as Note | null;
+}
+
 /** Todas as notas com conteúdo, para exportar. */
 export function fetchAllNotesFull() {
   return fetchAll<Note>((a, b) => supabase.from("notes").select(NOTE_COLS).order("updated_at", { ascending: false }).range(a, b) as never);

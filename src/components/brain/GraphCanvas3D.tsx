@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph3D, { type ForceGraphMethods, type LinkObject, type NodeObject } from "react-force-graph-3d";
-import { AdditiveBlending, Color, FogExp2, type Intersection, type PerspectiveCamera, type Raycaster, Sprite, SpriteMaterial, Vector3 } from "three";
+import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, FogExp2, type Intersection, type PerspectiveCamera, Points, PointsMaterial, type Raycaster, Sprite, SpriteMaterial, Vector3 } from "three";
 import { useReducedMotion } from "motion/react";
 import type { GLink, GNode } from "./GraphCanvas";
 import { useGraphColors } from "./graph-colors";
+import { brainForce, brainRadius, brainSurface } from "./brain-shape";
 import { LINK_MATERIALS, SPACE, createSpace, hitRadius, insideHit, luminous, neuronTexture } from "./space-scene";
 
 type N = NodeObject<GNode>;
@@ -183,12 +184,31 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
     return () => cancelAnimationFrame(raf);
   }, [active, data, reduced]);
 
+  // Contorno do cérebro: pontos de luz tênues na casca dos hemisférios (um único objeto de desenho).
+  const radiusR = brainRadius(nodes.length);
+  useEffect(() => {
+    const g = fg.current;
+    if (!g) return;
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new BufferAttribute(brainSurface(big ? 1200 : 2600, radiusR), 3));
+    const mat = new PointsMaterial({ map: neuronTexture(), color: "#4f8dff", size: radiusR * 0.045, transparent: true, opacity: 0.45, blending: AdditiveBlending, depthWrite: false, fog: false });
+    const cortex = new Points(geo, mat);
+    g.scene().add(cortex);
+    return () => {
+      g.scene().remove(cortex);
+      geo.dispose();
+      mat.dispose();
+    };
+  }, [radiusR, big]);
+
   // Forças (os mesmos controles de Repulsão e Distância do 2D).
   useEffect(() => {
     const g = fg.current;
     if (!g) return;
     (g.d3Force("charge") as unknown as { strength: (v: number) => void } | undefined)?.strength(-repulsion);
     (g.d3Force("link") as unknown as { distance: (v: number) => void } | undefined)?.distance(distance);
+    // As notas se acomodam na casca de dois hemisférios: o grafo vai se construindo como um cérebro.
+    g.d3Force("brain", brainForce(() => brainRadius(data.nodes.length)) as never);
     g.d3ReheatSimulation();
   }, [repulsion, distance, data]);
 

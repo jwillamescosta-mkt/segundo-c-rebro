@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { FileUp, Link2, Loader2, Mic, Paperclip, Send, Square, X, Image as ImageIcon, FileText, AudioLines } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LIMITS, type Note } from "@/lib/brain";
-import { isNetworkError, kindOf, saveCapture } from "@/lib/capture-client";
-import { enqueue } from "@/lib/offline-queue";
+import { kindOf, saveCapture } from "@/lib/capture-client";
+import { enqueue, recAppend, recClear } from "@/lib/offline-queue";
 import { useApp } from "./app-context";
 
 const ACCEPT = "audio/*,image/*,.pdf,.docx,.txt,.md,.markdown";
@@ -17,10 +16,12 @@ function fmtSize(b: number) {
 }
 
 export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?: "inline" | "mobile" | "dialog"; onDone?: () => void; autoFocus?: boolean }) {
-  const { runProcess } = useApp();
+  const { runProcess, flushOutbox } = useApp();
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const [text, setText] = useState("");
+  // O fim da gravação dispara o envio a partir de um fecho antigo: lê o texto atual por aqui.
+  const textRef = useRef(text);
+  textRef.current = text;
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,13 +59,21 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
       const mime = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
       chunks.current = [];
-      rec.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
+      await recClear();
+      // Cada pedaço vai também para o disco: se o app fechar no meio da gravação, o áudio é recuperado ao abrir.
+      rec.ondataavailable = (e) => {
+        if (!e.data.size) return;
+        chunks.current.push(e.data);
+        void recAppend(e.data);
+      };
       rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const type = rec.mimeType || "audio/webm";
         const blob = new Blob(chunks.current, { type });
         const ext = type.includes("mp4") ? "m4a" : "webm";
-        pick(new File([blob], `gravacao-${Date.now()}.${ext}`, { type }));
+        if (!blob.size) return void toast.error("A gravação ficou vazia. Tente de novo.");
+        // Gravou, guardou: a gravação vai direto para a caixa de saída (sem depender de mais um toque).
+        void submit(new File([blob], `gravacao-${Date.now()}.${ext}`, { type })).then(() => recClear());
       };
       rec.start(1000);
       recRef.current = rec;
@@ -80,39 +89,42 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
     setRecording(false);
   }
 
-  async function submit() {
-    if (busy) return;
-    const t = text.trim();
-    if (!file && !t) return toast.error("Escreva algo, grave um áudio ou anexe um arquivo.");
+  /**
+   * Blindagem: a captura é gravada no aparelho ANTES de qualquer envio e a caixa é liberada na hora.
+   * O envio acontece em segundo plano e se repete até o servidor confirmar (ver offline-queue.ts).
+   */
+  async function submit(recorded?: File) {
+    if (busy && !recorded) return;
+    const f = recorded ?? file;
+    const t = textRef.current.trim();
+    if (!f && !t) return void toast.error("Escreva algo, grave um áudio ou anexe um arquivo.");
     setBusy(true);
     try {
-      const note = await saveCapture(t, file);
-      qc.setQueryData<Note[]>(["notes"], (old) => [note, ...(old ?? []).filter((n) => n.id !== note.id)]);
-      setText("");
-      setFile(null);
-      toast.success("Capturado! A IA está organizando.", {
-        action: { label: "Abrir", onClick: () => navigate({ to: "/nota/$id", params: { id: note.id } }) },
-      });
-      onDone?.();
-      void runProcess(note.id, "full");
-    } catch (e) {
-      if (isNetworkError(e)) {
-        // Sem sinal: guarda no aparelho e envia sozinho quando a internet voltar.
-        try {
-          await enqueue(t, file);
-          setText("");
-          setFile(null);
-          toast.success("Sem internet: guardado no aparelho. Envio automático quando a conexão voltar.");
-          onDone?.();
-          return;
-        } catch {
-          /* IndexedDB indisponível: cai no erro normal */
-        }
+      await enqueue(t, f);
+    } catch {
+      // Sem armazenamento no aparelho (ex.: aba anônima): envia direto e, se falhar, mantém tudo na caixa.
+      try {
+        const note = await saveCapture(t, f);
+        qc.setQueryData<Note[]>(["notes"], (old) => [note, ...(old ?? []).filter((n) => n.id !== note.id)]);
+        setText("");
+        setFile(null);
+        toast.success("Capturado! A IA está organizando.");
+        onDone?.();
+        void runProcess(note.id, "full");
+      } catch (e) {
+        if (recorded) setFile(recorded); // não perde a gravação: fica na caixa para tentar de novo
+        toast.error(e instanceof Error ? e.message : "Não foi possível capturar. Seu conteúdo continua aqui.");
+      } finally {
+        setBusy(false);
       }
-      toast.error(e instanceof Error ? e.message : "Não foi possível capturar.");
-    } finally {
-      setBusy(false);
+      return;
     }
+    setText("");
+    setFile(null);
+    setBusy(false);
+    onDone?.();
+    toast.success(navigator.onLine === false ? "Guardado no aparelho. Envio assim que a internet voltar." : "Guardado. Enviando para o seu cérebro…");
+    void flushOutbox();
   }
 
   const FileIcon = file ? (kindOf(file) === "audio" ? AudioLines : kindOf(file) === "imagem" ? ImageIcon : FileText) : Paperclip;
@@ -220,7 +232,7 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
             </span>
           )}
           <span className="ml-auto hidden text-[11px] text-muted-foreground sm:inline">Ctrl+Enter</span>
-          <Button type="button" size="sm" className="h-7 gap-1.5 px-3 text-xs" onClick={submit} disabled={busy || recording}>
+          <Button type="button" size="sm" className="h-7 gap-1.5 px-3 text-xs" onClick={() => submit()} disabled={busy || recording}>
             {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
             Capturar
           </Button>

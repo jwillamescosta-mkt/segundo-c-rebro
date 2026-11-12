@@ -11,6 +11,7 @@ import { SmartPassCard } from "@/components/brain/SmartPassCard";
 import { Reveal, StaggerItem, StaggerList } from "@/components/brain/motion";
 import { addDaysISO, buildAgenda, formatDayBR, todayISO } from "@/lib/tasks-utils";
 import { CaptureBox } from "@/components/brain/CaptureBox";
+import { OutboxStatus } from "@/components/brain/OutboxStatus";
 import { BrainPulse } from "@/components/brain/BrainPulse";
 import { brainPulse } from "@/lib/pulse-utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -55,7 +56,10 @@ function Home() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
       <BrainPulse name={firstName} total={notes.length} connections={accepted} pulse={pulse} />
-      <CaptureBox variant={isMobile ? "mobile" : "inline"} />
+      <div>
+        <CaptureBox variant={isMobile ? "mobile" : "inline"} />
+        <OutboxStatus />
+      </div>
       <Reveal>
         <div className="mb-2"><SmartPassCard /></div>
         <BriefingButtons />

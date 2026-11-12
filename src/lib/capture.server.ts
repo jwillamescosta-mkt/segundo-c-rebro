@@ -5,11 +5,10 @@ import {
   HOURLY_LIMIT,
   MAX_TEXT,
   PENDING_PROGRESS,
-  extFromMime,
   firstUrl,
-  kindFromMime,
   parseBearer,
   sha256Hex,
+  uploadKind,
 } from "./capture-utils";
 
 export type CaptureResult = { status: number; body: { ok: boolean; mensagem: string } };
@@ -55,11 +54,12 @@ export async function storeCapture({ uid, tokenId }: CaptureAuth, rawText: strin
   let attachment_path: string | null = null;
   const url = firstUrl(text);
   if (file) {
-    const kind = kindFromMime(file.type || "");
-    if (!kind) return fail(415, `Tipo de arquivo não aceito (${file.type || "desconhecido"}).`);
+    const up = uploadKind(file.type || "", file.name || "");
+    if (!up) return fail(415, `Tipo de arquivo não aceito (${file.type || "desconhecido"}).`);
+    const kind = up.kind;
     if (file.size > FILE_LIMITS[kind]) return fail(413, "Arquivo grande demais.");
     source_kind = kind;
-    attachment_path = `${uid}/${crypto.randomUUID()}.${extFromMime(file.type, kind === "audio" ? "m4a" : "bin")}`;
+    attachment_path = `${uid}/${crypto.randomUUID()}.${up.ext}`;
     const { error } = await supabaseAdmin.storage.from("anexos").upload(attachment_path, file, { contentType: file.type || undefined });
     if (error) return fail(500, "Falha ao guardar o arquivo.");
   } else if (url) source_kind = "link";

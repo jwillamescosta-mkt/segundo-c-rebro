@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PENDING_PROGRESS } from "@/lib/capture-utils";
+import { needsProcessing } from "@/lib/capture-utils";
 import { smartPassFn } from "@/lib/smart.functions";
 import { DEFAULT_THRESHOLD, isSmartPending, readThreshold, shouldAutoRun, writeThreshold } from "@/lib/smart-utils";
 import { saveCapture } from "@/lib/capture-client";
-import { flushQueue } from "@/lib/offline-queue";
+import { enqueue, flushQueue, queuedFile, recClear, recRecover } from "@/lib/offline-queue";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -25,6 +25,8 @@ interface Ctx {
   pendingSmart: number;
   smartBusy: boolean;
   runSmart: (noteIds?: string[]) => Promise<void>;
+  /** Tenta enviar agora as capturas guardadas no aparelho. */
+  flushOutbox: () => Promise<{ sent: number; left: number }>;
   threshold: number;
   setThreshold: (n: number) => void;
 }
@@ -162,8 +164,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [qc]);
 
-  // Capturas feitas pelos Atalhos do iPhone chegam na fila; a IA roda aqui, com o login do usuário (uma por vez).
-  const pending = useQuery(notesQuery).data?.filter((n) => n.status === "processando" && n.progress === PENDING_PROGRESS);
+  // Notas paradas em "processando" (chegaram pelo Atalho, ficaram na fila ou o app fechou no meio):
+  // a IA retoma aqui, com o login do usuário, uma por vez. Cada nota é retomada uma vez por sessão.
+  const [clock, setClock] = useState(0); // reavalia a cada minuto: uma nota pode "envelhecer" sem mudar
+  useEffect(() => {
+    const t = setInterval(() => setClock((c) => c + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const pending = useQuery(notesQuery).data?.filter((n) => needsProcessing(n));
   const pendingKey = pending?.map((n) => n.id).join(",") ?? "";
   const started = useRef(new Set<string>());
   useEffect(() => {
@@ -173,24 +181,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void (async () => {
       for (const id of ids) await runProcessRef.current(id, "full");
     })();
-  }, [pendingKey]);
+  }, [pendingKey, clock]);
 
-  // Capturas guardadas sem internet: envia ao abrir o app e quando a conexão volta.
-  useEffect(() => {
-    const flush = async () => {
-      const sent = await flushQueue(async (text, file) => {
-        const n = await saveCapture(text, file);
-        void runProcessRef.current(n.id, "full");
-      });
-      if (sent) {
-        qc.invalidateQueries({ queryKey: ["notes"] });
-        toast.success(`${sent} captura${sent > 1 ? "s" : ""} feita${sent > 1 ? "s" : ""} sem internet ${sent > 1 ? "foram enviadas" : "foi enviada"}.`);
-      }
-    };
-    void flush();
-    window.addEventListener("online", flush);
-    return () => window.removeEventListener("online", flush);
+  // Caixa de saída: envia o que está guardado no aparelho ao abrir, ao voltar a conexão, ao voltar para o app
+  // e a cada 30 s enquanto houver algo. Só sai da caixa o que o servidor confirmou.
+  const flushOutbox = useCallback(async () => {
+    const r = await flushQueue(async (item) => {
+      const n = await saveCapture(item.text, queuedFile(item), item.id);
+      started.current.add(n.id);
+      qc.setQueryData<NoteMeta[]>(["notes"], (old) => [n, ...(old ?? []).filter((x) => x.id !== n.id)]);
+      if (n.status === "processando") void runProcessRef.current(n.id, "full");
+    });
+    if (r.sent) toast.success(r.sent === 1 ? "Captura salva no seu cérebro. A IA está organizando." : `${r.sent} capturas salvas no seu cérebro.`);
+    return r;
   }, [qc]);
+  useEffect(() => {
+    // Gravação interrompida (o app fechou enquanto gravava): o que foi gravado entra na caixa de saída.
+    void recRecover()
+      .then(async (file) => {
+        if (!file) return;
+        await enqueue("", file);
+        await recClear();
+        toast.success("Recuperei uma gravação que tinha sido interrompida.");
+      })
+      .catch(() => {})
+      .finally(() => void flushOutbox());
+    const onVisible = () => document.visibilityState === "visible" && void flushOutbox();
+    const kick = () => void flushOutbox();
+    window.addEventListener("online", kick);
+    document.addEventListener("visibilitychange", onVisible);
+    const t = setInterval(kick, 30_000);
+    return () => {
+      window.removeEventListener("online", kick);
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(t);
+    };
+  }, [flushOutbox]);
 
   // Ctrl/Cmd+K
   useEffect(() => {
@@ -281,7 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [pendingSmart, threshold, busyNow, runSmart]);
 
   return (
-    <AppCtx.Provider value={{ tabs, closeTab, captureOpen, setCaptureOpen, paletteOpen, setPaletteOpen, runProcess, pendingSmart, smartBusy, runSmart, threshold, setThreshold }}>
+    <AppCtx.Provider value={{ tabs, closeTab, captureOpen, setCaptureOpen, paletteOpen, setPaletteOpen, runProcess, pendingSmart, smartBusy, runSmart, threshold, setThreshold, flushOutbox }}>
       {children}
     </AppCtx.Provider>
   );

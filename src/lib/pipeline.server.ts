@@ -270,7 +270,10 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
     let ogImage = note.og_image;
     let linkTitle: string | null = null;
 
-    if (mode === "full") {
+    // Retomada de uma nota que parou no meio: se a transcrição/extração já foi gravada, não repete
+    // (evita texto duplicado e gasto de IA à toa); segue direto para a análise.
+    const extracted = /^## (Transcrição|Conteúdo do arquivo|Texto da página|Descrição)\s*$/m.test(content);
+    if (mode === "full" && !extracted) {
       const userText = content.trim();
       if (note.source_kind === "audio" && note.attachment_path) {
         await setProgress(db, noteId, "Transcrevendo…");

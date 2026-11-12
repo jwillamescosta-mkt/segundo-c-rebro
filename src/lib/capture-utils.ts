@@ -51,3 +51,30 @@ export function extFromMime(mime: string, fallback: string) {
 export function firstUrl(text: string) {
   return text.match(/https?:\/\/[^\s<>"]+/)?.[0] ?? null;
 }
+
+const EXT_KIND: Record<string, "audio" | "imagem" | "arquivo"> = {
+  m4a: "audio", mp3: "audio", wav: "audio", aac: "audio", webm: "audio", ogg: "audio", flac: "audio", mp4: "audio", mov: "audio", caf: "audio",
+  jpg: "imagem", jpeg: "imagem", png: "imagem", heic: "imagem", webp: "imagem", gif: "imagem",
+  pdf: "arquivo", txt: "arquivo", md: "arquivo", docx: "arquivo",
+};
+
+/**
+ * Tipo e extensão de um arquivo enviado. O iPhone às vezes manda o áudio sem tipo (application/octet-stream):
+ * nesse caso vale a extensão do nome, para a captura não ser recusada.
+ */
+export function uploadKind(mime: string, filename: string) {
+  const ext = (filename.split(".").pop() ?? "").toLowerCase();
+  const byMime = kindFromMime(mime);
+  if (byMime) return { kind: byMime, ext: extFromMime(mime, EXT_KIND[ext] === byMime ? ext : byMime === "audio" ? "m4a" : "bin") };
+  const byExt = EXT_KIND[ext];
+  return byExt ? { kind: byExt, ext: ext === "jpeg" ? "jpg" : ext === "mov" || ext === "mp4" ? "m4a" : ext } : null;
+}
+
+/**
+ * A nota está "processando" mas ninguém está cuidando dela? Acontece quando o app fecha no meio:
+ * chegou pelo Atalho, ficou na fila, ou parou há mais de 5 minutos. Ao abrir, o app retoma essas notas.
+ */
+export function needsProcessing(n: { status: string; progress: string | null; updated_at: string }, now = Date.now()) {
+  if (n.status !== "processando") return false;
+  return n.progress === PENDING_PROGRESS || n.progress === "Na fila…" || now - +new Date(n.updated_at) > 5 * 60_000;
+}

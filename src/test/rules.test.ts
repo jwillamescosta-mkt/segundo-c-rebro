@@ -10,7 +10,7 @@ import { askTerms } from "@/lib/ask-utils";
 import { Color } from "three";
 import { hitRadius, insideHit, luminous, spherePoints } from "@/components/brain/space-scene";
 import { isSmartPending, shouldAutoRun, withSmart } from "@/lib/smart-utils";
-import { audioMime, describeError } from "@/lib/audio-utils";
+import { audioMime, describeError, sniffAudio } from "@/lib/audio-utils";
 import { buildChildContent, cleanRefs, cleanTopics, profileForPrompt, sanitizeWikilinks } from "@/lib/split-utils";
 import { goalPace, goalProgress, krProgress } from "@/lib/goals-utils";
 import { BRIEFING_HEADING, demoteHeadings, upsertBriefing } from "@/lib/briefing-utils";
@@ -79,6 +79,13 @@ describe("áudio", () => {
     expect([audioMime("m4a"), audioMime("MP3"), audioMime("weba"), audioMime("wav"), audioMime("xyz")]).toEqual([
       "audio/mp4", "audio/mpeg", "audio/webm", "audio/wav", "audio/mpeg",
     ]);
+  });
+  it("reconhece o container pelos bytes (MP4 do iPhone, WebM, WAV)", () => {
+    const mp4 = new Uint8Array([0, 0, 0, 0x20, 0x66, 0x74, 0x79, 0x70, 0x4d, 0x34, 0x41, 0x20]);
+    expect(sniffAudio(mp4)).toEqual({ type: "audio/mp4", ext: "m4a" });
+    expect(sniffAudio(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]))?.ext).toBe("webm");
+    expect(sniffAudio(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0]))?.ext).toBe("wav");
+    expect(sniffAudio(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]))).toBeNull();
   });
   it("descreve o erro do gateway de forma curta, com código e status", () => {
     expect(describeError({ code: "request_rejected", httpStatus: 400, message: "formato  não\nsuportado" })).toBe("request_rejected 400: formato não suportado");

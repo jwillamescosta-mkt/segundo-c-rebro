@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { LIMITS, type Note } from "@/lib/brain";
 import { kindOf, saveCapture } from "@/lib/capture-client";
 import { enqueue, recAppend, recClear } from "@/lib/offline-queue";
+import { sniffAudio } from "@/lib/audio-utils";
 import { useApp } from "./app-context";
 
 const ACCEPT = "audio/*,image/*,.pdf,.docx,.txt,.md,.markdown";
@@ -45,6 +46,23 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
     return () => clearInterval(t);
   }, [recording]);
 
+  // iOS pausa o microfone sem avisar ao travar a tela/trocar de app: fecha e guarda o que já foi gravado.
+  useEffect(() => {
+    if (!recording) return;
+    const stop = () => {
+      recRef.current?.stop();
+      setRecording(false);
+      toast.info("Gravação encerrada e guardada porque você saiu do app.");
+    };
+    const onVis = () => document.visibilityState === "hidden" && stop();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", stop);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", stop);
+    };
+  }, [recording]);
+
   function pick(f: File) {
     const k = kindOf(f);
     if (!k) return toast.error("Formato não suportado. Use áudio, imagem, PDF, DOCX, TXT ou MD.");
@@ -66,12 +84,17 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
         chunks.current.push(e.data);
         void recAppend(e.data);
       };
-      rec.onstop = () => {
+      rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        const type = rec.mimeType || "audio/webm";
+        const raw = new Blob(chunks.current);
+        // Mínimo de ~1 KB: abaixo disso o microfone foi mudo/cortado pelo sistema.
+        if (raw.size < 1024) return void toast.error("A gravação ficou vazia ou sem som. Verifique o microfone e tente de novo.");
+        // Os bytes mandam mais que o MIME informado: no iPhone ele vem vazio e o conteúdo é MP4/AAC.
+        const sniffed = sniffAudio(new Uint8Array(await raw.slice(0, 16).arrayBuffer()));
+        const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+        const type = sniffed?.type ?? (rec.mimeType || (ios ? "audio/mp4" : "audio/webm"));
+        const ext = sniffed?.ext ?? (type.includes("mp4") ? "m4a" : "webm");
         const blob = new Blob(chunks.current, { type });
-        const ext = type.includes("mp4") ? "m4a" : "webm";
-        if (!blob.size) return void toast.error("A gravação ficou vazia. Tente de novo.");
         // Gravou, guardou: a gravação vai direto para a caixa de saída (sem depender de mais um toque).
         void submit(new File([blob], `gravacao-${Date.now()}.${ext}`, { type })).then(() => recClear());
       };

@@ -10,6 +10,16 @@ export function audioMime(ext: string) {
   return "audio/mpeg";
 }
 
+/** Container real pelos primeiros bytes (o iOS às vezes informa MIME vazio e grava MP4/AAC). */
+export function sniffAudio(b: Uint8Array): { type: string; ext: string } | null {
+  const s = (i: number, t: string) => [...t].every((c, k) => b[i + k] === c.charCodeAt(0));
+  if (s(4, "ftyp")) return { type: "audio/mp4", ext: "m4a" };
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return { type: "audio/webm", ext: "webm" };
+  if (s(0, "RIFF")) return { type: "audio/wav", ext: "wav" };
+  if (s(0, "OggS")) return { type: "audio/ogg", ext: "ogg" };
+  return null;
+}
+
 /** Descrição curta e segura de um erro, para mostrar ao usuário o que falhou. */
 export function describeError(e: unknown) {
   const x = e as { code?: string; httpStatus?: number; message?: string } | null;

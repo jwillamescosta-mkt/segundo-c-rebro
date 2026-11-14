@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Brain, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { getSharedNoteFn } from "@/lib/shared.functions";
 import { PlainMarkdown } from "@/components/brain/Markdown";
 
 export const Route = createFileRoute("/s/$token")({
@@ -24,15 +24,7 @@ function SharedNote() {
   const { token } = Route.useParams();
   const q = useQuery({
     queryKey: ["shared", token],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_shared_note", { _token: token });
-      if (error) throw error;
-      const n = data?.[0];
-      if (!n) return null;
-      let url: string | null = null;
-      if (n.attachment_path) url = (await supabase.storage.from("anexos").createSignedUrl(n.attachment_path, 3600)).data?.signedUrl ?? null;
-      return { ...n, url };
-    },
+    queryFn: () => getSharedNoteFn({ data: { token } }),
   });
   if (q.isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="size-5 animate-spin" /></div>;
   const n = q.data;

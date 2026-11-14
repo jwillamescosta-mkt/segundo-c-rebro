@@ -208,11 +208,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .finally(() => void flushOutbox());
     const onVisible = () => document.visibilityState === "visible" && void flushOutbox();
     const kick = () => void flushOutbox();
+    const offline = () => toast.info("Sem internet. O que você capturar fica guardado neste aparelho.", { id: "sem-internet" });
     window.addEventListener("online", kick);
+    window.addEventListener("offline", offline);
     document.addEventListener("visibilitychange", onVisible);
     const t = setInterval(kick, 30_000);
     return () => {
       window.removeEventListener("online", kick);
+      window.removeEventListener("offline", offline);
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(t);
     };

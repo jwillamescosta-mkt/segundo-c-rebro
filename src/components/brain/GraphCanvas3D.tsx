@@ -18,6 +18,8 @@ interface Props {
   focusId?: string | null;
   repulsion?: number;
   distance?: number;
+  /** O navegador tirou o contexto WebGL (falta de memória gráfica). */
+  onContextLost?: (() => void) | undefined;
 }
 
 const endId = (x: unknown) => (typeof x === "object" && x ? (x as N).id : (x as string)) as string;
@@ -36,7 +38,10 @@ const radius = (n: GNode) => Math.cbrt(1 + Math.sqrt(n.degree) * 1.8) * 4;
  * navegador pausa tudo com a aba escondida.
  * Toque/clique: o 1º foca e leva a câmera até a nota; o 2º na mesma nota a abre.
  */
-export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, focusId, repulsion = 180, distance = 60 }: Props) {
+export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, focusId, repulsion = 180, distance = 60, onContextLost }: Props) {
+  const lostRef = useRef(onContextLost);
+  lostRef.current = onContextLost;
+  const alive = useRef(false);
   const wrap = useRef<HTMLDivElement>(null);
   const fg = useRef<ForceGraphMethods<N, L> | undefined>(undefined);
   const [size, setSize] = useState({ w: 300, h: 300 });
@@ -100,6 +105,23 @@ export default function GraphCanvas3D({ nodes, links, onNodeClick, highlight, fo
       controls.removeEventListener?.("start", pause);
     };
   }, [reduced]);
+
+  // Contexto WebGL: avisa se o navegador o tirar e o devolve na saída. O dispose() da biblioteca libera os recursos,
+  // mas o contexto em si ficaria esperando o coletor de lixo, e no iPhone eles se acumulam até a página cair.
+  useEffect(() => {
+    const renderer = fg.current?.renderer();
+    if (!renderer) return;
+    alive.current = true;
+    const canvas = renderer.domElement;
+    const lost = () => lostRef.current?.();
+    canvas.addEventListener("webglcontextlost", lost);
+    return () => {
+      alive.current = false;
+      canvas.removeEventListener("webglcontextlost", lost);
+      // Depois do destrutor da biblioteca; `alive` protege a remontagem dupla do modo de desenvolvimento.
+      setTimeout(() => !alive.current && !renderer.getContext().isContextLost() && renderer.forceContextLoss(), 0);
+    };
+  }, []);
 
   // Espaço: estrelas, poeira desfocada (girando devagar) e neblina azul. Montado uma vez, desmontado na saída.
   const space = useRef<ReturnType<typeof createSpace> | null>(null);

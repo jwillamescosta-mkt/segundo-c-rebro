@@ -130,6 +130,8 @@ async function extractLink(url: string) {
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) throw new Error(`O site respondeu com erro ${res.status}.`);
+  const ctype = res.headers.get("content-type") ?? "";
+  if (ctype && !/text|html|xml|json/i.test(ctype)) throw new Error("O endereço não é uma página de texto.");
   const html = (await res.text()).slice(0, 2_000_000);
   const title =
     meta(html, "og:title") ?? decodeEntities(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").trim() ?? u.hostname;
@@ -269,6 +271,7 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
     let content = note.content ?? "";
     let ogImage = note.og_image;
     let linkTitle: string | null = null;
+    let linkUnread = false;
 
     // Retomada de uma nota que parou no meio: se a transcrição/extração já foi gravada, não repete
     // (evita texto duplicado e gasto de IA à toa); segue direto para a análise.
@@ -319,15 +322,17 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
         content = (userText ? userText + "\n\n" : "") + "## Conteúdo do arquivo\n\n" + text;
       } else if (note.source_kind === "link" && note.source_url) {
         await setProgress(db, noteId, "Lendo página…");
-        const page = await extractLink(note.source_url);
-        linkTitle = page.title;
-        ogImage = page.image;
-        content =
-          (userText && userText !== note.source_url ? userText + "\n\n" : "") +
-          `Fonte: <${note.source_url}>\n\n` +
-          (page.description ? `> ${page.description}\n\n` : "") +
-          "## Texto da página\n\n" +
-          page.text;
+        const head = (userText && userText !== note.source_url ? userText + "\n\n" : "") + `Fonte: <${note.source_url}>\n\n`;
+        try {
+          const page = await extractLink(note.source_url);
+          linkTitle = page.title;
+          ogImage = page.image;
+          content = head + (page.description ? `> ${page.description}\n\n` : "") + "## Texto da página\n\n" + page.text;
+        } catch (e) {
+          // Site fechado para robôs, fora do ar ou que não é página de texto: o link fica guardado e a nota segue.
+          linkUnread = true;
+          content = head + `> Não foi possível ler esta página (${describeError(e)}). A nota foi criada a partir do endereço.`;
+        }
       }
       await db.from("notes").update({ content, og_image: ogImage }).eq("id", noteId);
     }
@@ -340,7 +345,7 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
         "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda e entidades. " +
         "Só crie tarefas quando houver uma ação concreta a fazer. Só crie compromissos quando houver data identificável; não invente horários. " +
         "Horários estão no fuso de Brasília.",
-      `Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
+      `Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}${linkUnread ? "A página do link não pôde ser lida: baseie-se só no endereço e no que o usuário escreveu, sem inventar o conteúdo da página.\n" : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
       "salvar_analise",
       analysisSchema,
     );

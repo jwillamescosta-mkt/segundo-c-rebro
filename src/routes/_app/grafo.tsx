@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useBrain } from "@/components/brain/app-context";
-import { LazyGraph, canUse3D } from "@/components/brain/LazyGraph";
+import { LazyGraph, canUse3D, crashed3D, mark3D } from "@/components/brain/LazyGraph";
+import { toast } from "sonner";
 import { useSynthesize } from "@/components/brain/SynthesisBox";
 import { Layers, Loader2, Minimize2, SlidersHorizontal } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -38,16 +39,32 @@ function GraphPage() {
   // Painel de filtros recolhível; a escolha fica salva neste navegador.
   const [open, setOpen] = useState(true);
   // 3D por padrão quando o aparelho suporta; a escolha fica salva neste navegador.
-  const [dim, setDim] = useState<"2d" | "3d">("2d");
-  useEffect(() => {
+  const [dim, setDim] = useState<"2d" | "3d">("2d");  useEffect(() => {
     let saved: string | null = null;
     try {
       saved = localStorage.getItem(DIM_KEY);
     } catch {
       /* sem armazenamento */
     }
-    setDim(saved === "2d" || !canUse3D() ? "2d" : "3d");
+    const crashed = crashed3D();
+    // `id` fixo: a página monta mais de uma vez na abertura e o aviso deve aparecer uma vez só.
+    if (crashed && saved !== "2d") toast.info("O grafo 3D fechou sozinho da última vez. Abri em 2D para poupar memória.", { id: "grafo-3d-queda" });
+    setDim(saved === "2d" || crashed || !canUse3D() ? "2d" : "3d");
   }, []);
+  // Marca "3D na tela" só enquanto o grafo está visível: se a página cair por memória, a marca sobra e a próxima abre em 2D.
+  useEffect(() => {
+    if (dim !== "3d") return;
+    const sync = () => mark3D(document.visibilityState === "visible");
+    const off = () => mark3D(false);
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("pagehide", off);
+    return () => {
+      off();
+      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("pagehide", off);
+    };
+  }, [dim]);
   const pickDim = (v: "2d" | "3d") => {
     setDim(v);
     try {
@@ -76,7 +93,12 @@ function GraphPage() {
 
   return (
     <div className="relative h-full min-h-[70vh]">
-      <LazyGraph dimension={dim} nodes={g.nodes} links={g.links} highlight={highlight} repulsion={rep} distance={dist} onNodeClick={(id) => navigate({ to: "/nota/$id", params: { id } })} />
+      <LazyGraph
+        onContextLost={() => {
+          setDim("2d"); // sem salvar: a preferência pelo 3D continua valendo na próxima visita
+          toast.info("O 3D ficou sem memória. Mostrando em 2D.");
+        }}
+        dimension={dim}nodes={g.nodes} links={g.links} highlight={highlight} repulsion={rep} distance={dist} onNodeClick={(id) => navigate({ to: "/nota/$id", params: { id } })} />
       <div role="group" aria-label="Visualização do grafo" className="absolute right-3 top-3 z-10 flex rounded-full border bg-panel/90 p-0.5 text-xs shadow-sm backdrop-blur">
         {(["2d", "3d"] as const).map((v) => (
           <button key={v} onClick={() => pickDim(v)} aria-pressed={dim === v} className={cn("relative rounded-full px-3 py-1 font-medium uppercase", dim === v ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>

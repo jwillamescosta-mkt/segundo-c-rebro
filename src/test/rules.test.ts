@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   extractHashtags,
   extractWikilinks,
@@ -71,6 +71,22 @@ describe("lote inteligente", () => {
   });
   it("roda sozinho só com limite ligado e fila suficiente", () => {
     expect([shouldAutoRun(9, 10), shouldAutoRun(10, 10), shouldAutoRun(50, 0), shouldAutoRun(1, 1)]).toEqual([false, true, false, true]);
+  });
+});
+
+describe("grafo 3D", () => {
+  it("marca que sobrou denuncia a queda até o 3D voltar à tela; sem marca, nada", async () => {
+    const load = async () => (vi.resetModules(), await import("@/components/brain/LazyGraph"));
+    let m = await load();
+    expect(m.crashed3D()).toBe(false);
+    m.mark3D(true); // 3D na tela e a página "cai" (novo carregamento, marca ainda lá)
+    m = await load();
+    expect([m.crashed3D(), m.crashed3D()]).toEqual([true, true]);
+    m.mark3D(true); // o usuário reabriu o 3D
+    expect(m.crashed3D()).toBe(false);
+    m.mark3D(false); // saída normal
+    m = await load();
+    expect(m.crashed3D()).toBe(false);
   });
 });
 

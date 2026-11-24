@@ -128,8 +128,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [loc.pathname, navigate],
   );
 
-  // Realtime: keep everything fresh (processing progress, new links, tasks)
+  // Realtime: keep everything fresh (processing progress, new links, tasks).
+  // Avisos em rajada (a IA grava várias ligações ou tarefas de uma vez) viram UM recarregamento por lista.
   useEffect(() => {
+    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+    const soon = (key: string) => {
+      clearTimeout(timers.get(key));
+      timers.set(key, setTimeout(() => {
+        timers.delete(key);
+        qc.invalidateQueries({ queryKey: [key] });
+      }, 400));
+    };
     const ch = supabase
       .channel(`brain-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "notes" }, (p) => {
@@ -138,19 +147,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const { content, search_vector: _sv, user_id: _u, ...meta } = row;
           qc.setQueryData<NoteMeta[]>(["notes"], (old) => old?.map((n) => (n.id === row.id ? { ...n, ...meta } : n)));
           qc.setQueryData<Note | null>(["note", row.id], (old) => (old ? { ...old, ...meta, content: content ?? old.content } : old));
-        } else qc.invalidateQueries({ queryKey: ["notes"] });
+        } else soon("notes");
       })
-      .on("postgres_changes", { event: "*", schema: "public", table: "links" }, () =>
-        qc.invalidateQueries({ queryKey: ["links"] }),
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () =>
-        qc.invalidateQueries({ queryKey: ["tasks"] }),
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () =>
-        qc.invalidateQueries({ queryKey: ["events"] }),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "links" }, () => soon("links"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => soon("tasks"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => soon("events"))
       .subscribe();
     return () => {
+      timers.forEach(clearTimeout);
       supabase.removeChannel(ch);
     };
   }, [qc]);

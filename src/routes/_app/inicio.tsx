@@ -49,7 +49,7 @@ function Home() {
   const firstName = (fullName?.full_name ?? fullName?.name ?? "").trim().split(/\s+/)[0] || null;
   const upcoming = buildAgenda(tasks.filter((t) => !t.done), events.filter((e) => e.status === "confirmado"), today, addDaysISO(today, 2));
   const dueCards = (useQuery(cardsMetaQuery).data ?? []).filter((c) => c.due <= today).length;
-  const overdue =tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
+  const overdue = tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
   const orphans = orphanNotes(notes, links).slice(0, 12);
   const recent = notes.slice(0, 8);
 
@@ -92,7 +92,7 @@ function Home() {
           </Link>
         )}
         {overdue > 0 && (
-          <Link to="/tarefas" className="mb-2 block text-sm text-destructive">{overdue} tarefa{overdue > 1 ? "s" : ""} atrasada{overdue > 1 ? "s" : ""}</Link>
+          <Link to="/revisar" className="mb-2 block text-sm text-destructive">{overdue} tarefa{overdue > 1 ? "s" : ""} atrasada{overdue > 1 ? "s" : ""} · reagendar em 1 clique</Link>
         )}
         {upcoming.size === 0 ? <p className="text-sm text-muted-foreground">Nada marcado para os próximos 3 dias.</p> : (
           <div className="space-y-3">{[...upcoming.entries()].map(([date, items]) => (

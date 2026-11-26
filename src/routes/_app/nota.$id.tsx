@@ -75,10 +75,11 @@ function NoteEditor({ note }: { note: Note }) {
     edit({ content: v });
     const pos = ta.current?.selectionStart ?? v.length;
     const m = v.slice(0, pos).match(/\[\[([^\]\n]*)$/);
-    setAc(m ? { q: m[1], i: 0 } : null);
+    setAc(m ? { q: m[1] ?? "", i: 0 } : null);
   }
   function insert(t: string) {
-    const el = ta.current!;
+    const el = ta.current;
+    if (!el) return;
     const pos = el.selectionStart;
     const before = content.slice(0, pos).replace(/\[\[([^\]\n]*)$/, `[[${t}]]`);
     const after = content.slice(pos).replace(/^\]\]/, "");
@@ -179,7 +180,7 @@ function NoteEditor({ note }: { note: Note }) {
                 if (!ac || !suggestions.length) return;
                 if (e.key === "ArrowDown") { e.preventDefault(); setAc({ ...ac, i: (ac.i + 1) % suggestions.length }); }
                 else if (e.key === "ArrowUp") { e.preventDefault(); setAc({ ...ac, i: (ac.i - 1 + suggestions.length) % suggestions.length }); }
-                else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insert(suggestions[ac.i].title); }
+                else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); const selected = suggestions[ac.i]; if (selected) insert(selected.title); }
                 else if (e.key === "Escape") setAc(null);
               }}
               className="min-h-[60vh] w-full resize-none rounded-md border bg-panel p-3 font-mono text-sm leading-relaxed outline-none focus:border-primary" />

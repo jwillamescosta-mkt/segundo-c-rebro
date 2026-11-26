@@ -270,7 +270,7 @@ export async function createManualLink(source: string, target: string, reason?: 
   const { error } = await supabase
     .from("links")
     .upsert(
-      { user_id, source_note_id: source, target_note_id: target, kind: "manual", status: "aceita", confidence: 1, reason },
+      { user_id, source_note_id: source, target_note_id: target, kind: "manual", status: "aceita", confidence: 1, reason: reason ?? null },
       { onConflict: "source_note_id,target_note_id" },
     );
   if (error) throw error;

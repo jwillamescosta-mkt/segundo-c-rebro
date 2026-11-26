@@ -60,7 +60,7 @@ export function useFullTextSearch(q: string) {
     const t = setTimeout(async () => {
       const { data, error } = await supabase.rpc("search_notes", { q: term });
       setLoading(false);
-      if (error) return toast.error("Erro na busca: " + error.message);
+      if (error) return void toast.error("Erro na busca: " + error.message);
       setHits((data ?? []) as SearchHit[]);
     }, 250);
     return () => clearTimeout(t);

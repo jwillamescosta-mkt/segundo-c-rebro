@@ -28,7 +28,7 @@ export function normalizeTitle(t: string) {
 export function extractWikilinks(md: string): string[] {
   const out = new Map<string, string>();
   for (const m of md.matchAll(WIKILINK_RE)) {
-    const title = m[1].trim();
+    const title = m[1]?.trim() ?? "";
     if (title) out.set(normalizeTitle(title), title);
   }
   return [...out.values()];
@@ -39,7 +39,8 @@ export function extractHashtags(md: string): string[] {
   const cleaned = md.replace(/```[\s\S]*?```/g, " ").replace(/`[^`]*`/g, " ");
   const out = new Set<string>();
   for (const m of cleaned.matchAll(/(^|[\s(])#([\p{L}\p{N}][\p{L}\p{N}_/-]*)/gu)) {
-    const tag = m[2].toLocaleLowerCase("pt-BR");
+    const tag = m[2]?.toLocaleLowerCase("pt-BR") ?? "";
+    if (!tag) continue;
     if (!/^\d+$/.test(tag)) out.add(tag);
   }
   return [...out];

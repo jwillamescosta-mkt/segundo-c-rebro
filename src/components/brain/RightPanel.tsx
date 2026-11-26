@@ -306,7 +306,7 @@ function NoteSidePanel({ note }: { note: NoteMeta }) {
           {note.entities && typeof note.entities === "object" && !Array.isArray(note.entities) &&
             (["pessoas", "clientes", "projetos"] as const).map((k) => {
               const v = (note.entities as Record<string, unknown>)[k];
-              return Array.isArray(v) && v.length ? <Row key={k} k={k[0].toUpperCase() + k.slice(1)} v={v.join(", ")} /> : null;
+              return Array.isArray(v) && v.length ? <Row key={k} k={k.charAt(0).toUpperCase() + k.slice(1)} v={v.join(", ")} /> : null;
             })}
           <div className="flex items-center justify-between border-t pt-2.5">
             <dt>

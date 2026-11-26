@@ -65,9 +65,9 @@ export function CaptureBox({ variant = "inline", onDone, autoFocus }: { variant?
 
   function pick(f: File) {
     const k = kindOf(f);
-    if (!k) return toast.error("Formato não suportado. Use áudio, imagem, PDF, DOCX, TXT ou MD.");
+    if (!k) return void toast.error("Formato não suportado. Use áudio, imagem, PDF, DOCX, TXT ou MD.");
     const limit = LIMITS[k];
-    if (f.size > limit) return toast.error(`Arquivo muito grande (${fmtSize(f.size)}). Limite para ${k === "audio" ? "áudio" : k === "imagem" ? "imagens" : "arquivos"}: ${fmtSize(limit)}.`);
+    if (f.size > limit) return void toast.error(`Arquivo muito grande (${fmtSize(f.size)}). Limite para ${k === "audio" ? "áudio" : k === "imagem" ? "imagens" : "arquivos"}: ${fmtSize(limit)}.`);
     setFile(f);
   }
 

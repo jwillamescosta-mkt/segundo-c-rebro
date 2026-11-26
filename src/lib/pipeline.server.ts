@@ -31,7 +31,6 @@ export async function chatText(system: string, parts: Part[]): Promise<string> {
   });
   const c = res.choices?.[0]?.message?.content;
   if (typeof c === "string") return c.trim();
-  if (Array.isArray(c)) return c.map((p) => ("text" in p && typeof p.text === "string" ? p.text : "")).join("").trim();
   return "";
 }
 
@@ -120,7 +119,7 @@ function meta(html: string, key: string) {
   const re1 = new RegExp(`<meta[^>]+(?:property|name)=["']${key}["'][^>]*content=["']([^"']*)["']`, "i");
   const re2 = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${key}["']`, "i");
   const m = html.match(re1) ?? html.match(re2);
-  return m ? decodeEntities(m[1]).trim() : null;
+  return m?.[1] ? decodeEntities(m[1]).trim() : null;
 }
 
 async function extractLink(url: string) {

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// Conector do Claude (MCP, só captura). A lógica fica no servidor (mcp.server.ts), carregada só aqui dentro.
+// Conector MCP (captura; com token de leitura, também consulta). A lógica fica no servidor (mcp.server.ts), carregada só aqui dentro.
 export const Route = createFileRoute("/api/mcp/$token")({
   server: {
     handlers: {

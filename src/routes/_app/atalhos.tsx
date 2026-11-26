@@ -35,6 +35,7 @@ function ShortcutsPage() {
   const [name, setName] = useState("iPhone");
   const [fresh, setFresh] = useState<string | null>(null);
   const [agendaToken, setAgendaToken] = useState<string | null>(null);
+  const [readToken, setReadToken] = useState<string | null>(null);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const endpoint = `${origin}/api/capturar`;
 
@@ -62,6 +63,21 @@ function ShortcutsPage() {
       qc.invalidateQueries({ queryKey: ["capture_tokens"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível criar o link da agenda.");
+    }
+  }
+  /** Conector que também LÊ o cérebro (núcleo, mapa, notas, agenda): token próprio, escopo "leitura". */
+  async function createReader() {
+    if (!confirm("Este conector deixa a IA ler suas notas. Qualquer pessoa com o endereço também consegue. Criar mesmo assim?")) return;
+    try {
+      const token = newToken();
+      const { error } = await supabase
+        .from("capture_tokens")
+        .insert({ user_id: await currentUserId(), name: "Conector com leitura", token_hash: await sha256Hex(token), scope: "leitura" });
+      if (error) throw error;
+      setReadToken(token);
+      qc.invalidateQueries({ queryKey: ["capture_tokens"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível criar o conector.");
     }
   }
   const agendaHttps = agendaToken ? `${origin}/api/agenda/${agendaToken}.ics` : "";
@@ -114,7 +130,7 @@ function ShortcutsPage() {
             {active.map((t) => (
               <li key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm">
                 <span className="flex-1">{t.name}</span>
-                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{t.scope === "agenda" ? "agenda" : "captura"}</span>
+                <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{t.scope === "agenda" ? "agenda" : t.scope === "leitura" ? "leitura" : "captura"}</span>
                 <span className="text-xs text-muted-foreground">{t.last_used_at ? `usado em ${formatDateBR(t.last_used_at)}` : `criado em ${formatDateBR(t.created_at)}`}</span>
                 <Button size="icon" variant="ghost" className="size-7 hover:text-destructive" aria-label={`Revogar ${t.name}`} onClick={() => revoke(t.id)}><Trash2 className="size-3.5" /></Button>
               </li>
@@ -181,6 +197,25 @@ function ShortcutsPage() {
             "O conector só cria notas: ele não lê nada do seu cérebro. Se o endereço vazar, revogue o token aqui.",
           ]}
         />
+        <div className="space-y-2 rounded-xl border bg-panel p-4">
+          <h3 className="text-sm font-semibold">Conector com leitura (o cérebro vira contexto de qualquer IA)</h3>
+          <p className="text-xs text-muted-foreground">
+            Além de capturar, o Claude (ou outro cliente MCP) passa a consultar seu núcleo, o mapa do cérebro, as notas e a agenda. Use para a IA escrever, planejar e decidir com o seu contexto.
+            As ferramentas devolvem resumos para gastar pouco. Quem tiver o endereço lê suas notas: não compartilhe e revogue se vazar.
+          </p>
+          {readToken ? (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-2 rounded-lg border border-primary/50 bg-primary/5 p-3">
+              <p className="text-xs font-medium">Endereço do conector (aparece só agora):</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 break-all rounded bg-background px-2 py-1 font-mono text-xs">{`${origin}/api/mcp/${readToken}`}</code>
+                <Button size="sm" variant="outline" onClick={() => copy(`${origin}/api/mcp/${readToken}`)} className="gap-1"><Copy className="size-3.5" /> Copiar</Button>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setReadToken(null)} className="gap-1"><Check className="size-3.5" /> Já guardei</Button>
+            </motion.div>
+          ) : (
+            <Button size="sm" variant="outline" onClick={createReader}>Criar conector com leitura</Button>
+          )}
+        </div>
       </Reveal>
 
       <Reveal delay={0.2} className="space-y-3 rounded-xl border bg-panel p-4">

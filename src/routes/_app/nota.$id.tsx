@@ -5,7 +5,7 @@ import { AlertCircle, Loader2, Pin, RefreshCw, Sparkles, Trash2, Undo2 } from "l
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { deleteNote, noteQuery, saveNoteContent, signedUrl, splitChildren, undoSplit, updateNote, type Note } from "@/lib/brain";
+import { deleteNote, noteQuery, renameWikilinks, saveNoteContent, signedUrl, splitChildren, undoSplit, updateNote, type Note } from "@/lib/brain";
 import { useApp, useBrain } from "@/components/brain/app-context";
 import { Markdown } from "@/components/brain/Markdown";
 import { useDraftSync } from "@/hooks/use-draft-sync";
@@ -64,6 +64,7 @@ function NoteEditor({ note }: { note: Note }) {
     }
   });
   const { title, content } = draft;
+  const titleAtFocus = useRef<string | null>(null);
   const [mode, setMode] = useState<"editar" | "dividir" | "ler">("ler");
   const [ac, setAc] = useState<{ q: string; i: number } | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
@@ -150,7 +151,24 @@ function NoteEditor({ note }: { note: Note }) {
           </ul>
         </div>
       )}
-      <input value={title} onChange={(e) => edit({ title: e.target.value })} className="mb-2 w-full bg-transparent text-2xl font-semibold outline-none" />
+      <input
+        value={title}
+        aria-label="Título"
+        onFocus={() => (titleAtFocus.current = title)}
+        onChange={(e) => edit({ title: e.target.value })}
+        onBlur={() => {
+          const before = titleAtFocus.current;
+          if (!before || before.trim() === title.trim() || !title.trim()) return;
+          renameWikilinks(note.id, before, title)
+            .then((n) => {
+              if (!n) return;
+              toast.success(`${n} nota${n > 1 ? "s" : ""} com [[${before.trim()}]] passou a apontar para o novo título.`);
+              qc.invalidateQueries({ queryKey: ["notes"] });
+            })
+            .catch(() => toast.error("Não consegui atualizar os links das outras notas."));
+        }}
+        className="mb-2 w-full bg-transparent text-2xl font-semibold outline-none"
+      />
       {note.summary && <p className="mb-4 border-l-2 border-primary pl-3 text-sm text-muted-foreground">{note.summary}</p>}
       <Attachment note={note} />
       <div className={cn("grid gap-4", mode === "dividir" && "md:grid-cols-2")}>

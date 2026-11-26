@@ -24,6 +24,7 @@ import {
   Sun,
   AlertCircle,
   Sparkles,
+  ListTree,
   X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -161,6 +162,7 @@ export function Sidebar() {
   const nav = [
     { to: "/inicio" as const, label: "Início", icon: Home },
     { to: "/entrevista" as const, label: "Montar meu cérebro", icon: Sparkles },
+    { to: "/indices" as const, label: "Mapa e índices", icon: ListTree },
     { to: "/revisar" as const, label: "Revisar", icon: Inbox, badge: toReview },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
     { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },

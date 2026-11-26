@@ -1,7 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { extractHashtags, mergeTags } from "./markdown-utils";
+import { extractHashtags, mergeTags, replaceWikilinkTarget } from "./markdown-utils";
 import { syncWikilinks } from "./wikilink-sync";
 import { todayISO, formatDateBR } from "./tasks-utils";
 
@@ -217,6 +217,25 @@ export async function saveNoteContent(note: Pick<Note, "id" | "tags">, patch: { 
   const { error } = await supabase.from("notes").update(update).eq("id", note.id);
   if (error) throw error;
   if (patch.content !== undefined) await syncWikilinks(supabase, user_id, note.id, patch.content);
+}
+
+/**
+ * Renomear não quebra o cérebro: as notas que linkavam para o título antigo passam a apontar para o novo.
+ * Devolve quantas notas foram atualizadas.
+ */
+export async function renameWikilinks(noteId: string, oldTitle: string, newTitle: string) {
+  if (!oldTitle.trim() || !newTitle.trim() || oldTitle.trim() === newTitle.trim()) return 0;
+  const pattern = `%[[${oldTitle.trim().replace(/[%_\\]/g, "\\$&")}%`;
+  const { data, error } = await supabase.from("notes").select("id,content").ilike("content", pattern).neq("id", noteId).limit(500);
+  if (error) throw error;
+  let n = 0;
+  for (const row of data ?? []) {
+    const content = replaceWikilinkTarget(row.content, oldTitle, newTitle);
+    if (content === row.content) continue;
+    const { error: upErr } = await supabase.from("notes").update({ content }).eq("id", row.id);
+    if (!upErr) n++;
+  }
+  return n;
 }
 
 export async function updateNote(id: string, patch: Partial<Note>) {

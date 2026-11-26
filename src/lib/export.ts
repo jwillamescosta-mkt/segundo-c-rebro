@@ -3,6 +3,7 @@ import { fetchAllCards, fetchAllNotesFull, type CalendarEvent, type Link, type N
 import { cardsToMarkdown } from "./study-utils";
 import { noteToMarkdown, sanitizeFilename } from "./markdown-utils";
 import { agendaToMarkdown } from "./tasks-utils";
+import { buildBrainMap, folderIndex, folderOf } from "./brain-map";
 
 export async function exportVault(links: Link[], tasks: Task[] = [], events: CalendarEvent[] = []) {
   // O conteúdo não fica em memória; busca tudo só na hora de exportar.
@@ -24,8 +25,14 @@ export async function exportVault(links: Link[], tasks: Task[] = [], events: Cal
       .map((l) => byId.get(l.source_note_id === n.id ? l.target_note_id : l.source_note_id))
       .filter((x): x is Note => !!x)
       .map((x) => fileName.get(x.id)!);
-    folder.file(`${fileName.get(n.id)}.md`, noteToMarkdown(n, [...new Set(linked)]));
+    folder.file(`${folderOf(n)}/${fileName.get(n.id)}.md`, noteToMarkdown(n, [...new Set(linked)]));
   }
+  // Formato "cérebro em pasta": mapa na raiz (lido por Claude, GPT e Codex) e um índice em cada pasta.
+  const groups = new Map<string, Note[]>();
+  for (const n of notes) groups.set(folderOf(n), [...(groups.get(folderOf(n)) ?? []), n]);
+  for (const [name, list] of groups) folder.file(`${name}/_indice.md`, folderIndex(name, list, (id) => fileName.get(id)!));
+  folder.file("AGENTS.md", buildBrainMap(notes, links, { folders: true }));
+  folder.file("CLAUDE.md", "@AGENTS.md\n\nLeia o AGENTS.md: é o mapa deste segundo cérebro.\n");
   const cards = await fetchAllCards();
   if (cards.length) {
     folder.file("_Flashcards.md", cardsToMarkdown(cards, (id) => (id && fileName.get(id)) || null));

@@ -23,15 +23,22 @@ const json = (r: CaptureResult) =>
  * Usa o cliente admin (ignora RLS), por isso toda escrita leva o user_id do token e nada é lido de
  * outros usuários. A IA NÃO roda aqui: a nota fica na fila e é processada com o login do usuário quando o app abre.
  */
-export async function authorizeCapture(token: string | null): Promise<CaptureAuth | CaptureResult> {
-  if (!token) return fail(401, "Token ausente ou inválido.");
+/** Token ativo de captura ("captura" só cria notas; "leitura" é o conector MCP que também lê). */
+export async function findCaptureToken(token: string | null) {
+  if (!token) return null;
   const { data: tok } = await supabaseAdmin
     .from("capture_tokens")
     .select("id,user_id,revoked_at,scope")
     .eq("token_hash", await sha256Hex(token))
     .maybeSingle();
   // Token de agenda só lê a agenda: não serve para criar notas.
-  if (!tok || tok.revoked_at || tok.scope !== "captura") return fail(401, "Token inválido ou revogado.");
+  if (!tok || tok.revoked_at || (tok.scope !== "captura" && tok.scope !== "leitura")) return null;
+  return tok;
+}
+
+export async function authorizeCapture(token: string | null): Promise<CaptureAuth | CaptureResult> {
+  const tok = await findCaptureToken(token);
+  if (!tok) return fail(401, "Token ausente, inválido ou revogado.");
 
   // Limite simples por hora, contando as capturas externas (Atalho e conector).
   const since = new Date(Date.now() - 3600_000).toISOString();

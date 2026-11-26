@@ -113,3 +113,11 @@ export function safeHeadline(h: string) {
 export function isUrl(s: string) {
   return /^https?:\/\/[^\s]+$/i.test(s.trim());
 }
+
+/** Troca o alvo de [[Antigo]], [[Antigo#seção]] e [[Antigo|apelido]] por [[Novo...]], preservando seção e apelido. */
+export function replaceWikilinkTarget(md: string, oldTitle: string, newTitle: string) {
+  const old = normalizeTitle(oldTitle);
+  return md.replace(WIKILINK_RE, (full, target: string) =>
+    normalizeTitle(target) === old ? `[[${newTitle.trim()}${full.slice(2 + target.length)}` : full,
+  );
+}

@@ -18,6 +18,7 @@ import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilha
 import { Route as AppEntrevistaRouteImport } from './routes/_app/entrevista'
 import { Route as AppEstudarRouteImport } from './routes/_app/estudar'
 import { Route as AppGrafoRouteImport } from './routes/_app/grafo'
+import { Route as AppIndicesRouteImport } from './routes/_app/indices'
 import { Route as AppInicioRouteImport } from './routes/_app/inicio'
 import { Route as AppMetasRouteImport } from './routes/_app/metas'
 import { Route as AppNotasRouteImport } from './routes/_app/notas'
@@ -72,6 +73,11 @@ const AppEstudarRoute = AppEstudarRouteImport.update({
 const AppGrafoRoute = AppGrafoRouteImport.update({
   id: '/grafo',
   path: '/grafo',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppIndicesRoute = AppIndicesRouteImport.update({
+  id: '/indices',
+  path: '/indices',
   getParentRoute: () => AppRoute,
 } as any)
 const AppInicioRoute = AppInicioRouteImport.update({
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/entrevista': typeof AppEntrevistaRoute
   '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
+  '/indices': typeof AppIndicesRoute
   '/inicio': typeof AppInicioRoute
   '/metas': typeof AppMetasRoute
   '/notas': typeof AppNotasRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/entrevista': typeof AppEntrevistaRoute
   '/estudar': typeof AppEstudarRoute
   '/grafo': typeof AppGrafoRoute
+  '/indices': typeof AppIndicesRoute
   '/inicio': typeof AppInicioRoute
   '/metas': typeof AppMetasRoute
   '/notas': typeof AppNotasRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   '/_app/entrevista': typeof AppEntrevistaRoute
   '/_app/estudar': typeof AppEstudarRoute
   '/_app/grafo': typeof AppGrafoRoute
+  '/_app/indices': typeof AppIndicesRoute
   '/_app/inicio': typeof AppInicioRoute
   '/_app/metas': typeof AppMetasRoute
   '/_app/notas': typeof AppNotasRoute
@@ -206,6 +215,7 @@ export interface FileRouteTypes {
     | '/entrevista'
     | '/estudar'
     | '/grafo'
+    | '/indices'
     | '/inicio'
     | '/metas'
     | '/notas'
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/entrevista'
     | '/estudar'
     | '/grafo'
+    | '/indices'
     | '/inicio'
     | '/metas'
     | '/notas'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/_app/entrevista'
     | '/_app/estudar'
     | '/_app/grafo'
+    | '/_app/indices'
     | '/_app/inicio'
     | '/_app/metas'
     | '/_app/notas'
@@ -335,6 +347,13 @@ declare module '@tanstack/react-router' {
       path: '/grafo'
       fullPath: '/grafo'
       preLoaderRoute: typeof AppGrafoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/indices': {
+      id: '/_app/indices'
+      path: '/indices'
+      fullPath: '/indices'
+      preLoaderRoute: typeof AppIndicesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/inicio': {
@@ -424,6 +443,7 @@ interface AppRouteChildren {
   AppEntrevistaRoute: typeof AppEntrevistaRoute
   AppEstudarRoute: typeof AppEstudarRoute
   AppGrafoRoute: typeof AppGrafoRoute
+  AppIndicesRoute: typeof AppIndicesRoute
   AppInicioRoute: typeof AppInicioRoute
   AppMetasRoute: typeof AppMetasRoute
   AppNotasRoute: typeof AppNotasRoute
@@ -440,6 +460,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppEntrevistaRoute: AppEntrevistaRoute,
   AppEstudarRoute: AppEstudarRoute,
   AppGrafoRoute: AppGrafoRoute,
+  AppIndicesRoute: AppIndicesRoute,
   AppInicioRoute: AppInicioRoute,
   AppMetasRoute: AppMetasRoute,
   AppNotasRoute: AppNotasRoute,

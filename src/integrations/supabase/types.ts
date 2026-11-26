@@ -383,6 +383,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tasks_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: false

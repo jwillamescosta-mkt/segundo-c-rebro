@@ -7,6 +7,8 @@ const auth = vi.hoisted(() => ({
   getUser: vi.fn(),
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
+  verifyOtp: vi.fn(),
+  exchangeCodeForSession: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { auth } }));
 vi.mock("@tanstack/react-router", () => ({
@@ -25,6 +27,8 @@ beforeEach(() => {
   auth.getUser.mockResolvedValue({ data: { user: { id: "test-user" } }, error: null });
   auth.resetPasswordForEmail.mockResolvedValue({ error: null });
   auth.updateUser.mockResolvedValue({ error: null });
+  auth.verifyOtp.mockResolvedValue({ error: null });
+  auth.exchangeCodeForSession.mockResolvedValue({ error: null });
 });
 afterEach(cleanup);
 
@@ -79,5 +83,25 @@ describe("Recuperação de senha", () => {
     render(<ResetPasswordPage />);
     expect(auth.getUser).not.toHaveBeenCalled();
     expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+  it("aceita link com token_hash: troca pelo token antes de liberar o formulário", async () => {
+    window.history.replaceState(null, "", "/reset-password?token_hash=abc&type=recovery");
+    render(<ResetPasswordPage />);
+    await screen.findByLabelText("Nova senha");
+    expect(auth.verifyOtp).toHaveBeenCalledWith({ token_hash: "abc", type: "recovery" });
+    expect(window.location.search).toBe("");
+  });
+  it("aceita link com code (PKCE)", async () => {
+    window.history.replaceState(null, "", "/reset-password?code=xyz");
+    render(<ResetPasswordPage />);
+    await screen.findByLabelText("Nova senha");
+    expect(auth.exchangeCodeForSession).toHaveBeenCalledWith("xyz");
+  });
+  it("token_hash vencido mostra link inválido", async () => {
+    window.history.replaceState(null, "", "/reset-password?token_hash=velho&type=recovery");
+    auth.verifyOtp.mockResolvedValue({ error: new Error("Token has expired") });
+    render(<ResetPasswordPage />);
+    await screen.findByText("Link inválido ou expirado");
+    expect(auth.getUser).not.toHaveBeenCalled();
   });
 });

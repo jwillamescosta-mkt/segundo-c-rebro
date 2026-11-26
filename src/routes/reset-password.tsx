@@ -44,16 +44,28 @@ export function ResetPasswordPage() {
       if (active && event === "PASSWORD_RECOVERY" && session) setState("valida");
       if (active && event === "SIGNED_OUT") setState("invalida");
     });
+    // O e-mail pode trazer o link em três formatos: #access_token (implícito, o cliente consome sozinho),
+    // ?token_hash=&type=recovery (modelo de e-mail com token) ou ?code= (PKCE). Os dois últimos precisam ser trocados aqui.
+    const tokenHash = query.get("token_hash") ?? query.get("token");
+    const code = query.get("code");
+    const exchange = tokenHash
+      ? supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then((r) => r.error)
+      : code
+        ? supabase.auth.exchangeCodeForSession(code).then((r) => r.error)
+        : Promise.resolve(null);
     if (invalid) setState("invalida");
     else {
       // The auth client consumes recovery tokens before clearing the URL hash.
       // Revalidate the resulting session; never trust URL tokens on their own.
-      void supabase.auth
-        .getUser()
+      void exchange
+        .then((exchangeError) =>
+          exchangeError ? Promise.reject(exchangeError) : supabase.auth.getUser(),
+        )
         .then(({ data: userData, error: authError }) => {
           if (!active) return;
           setState(userData.user && !authError ? "valida" : "invalida");
-          if (recovery) window.history.replaceState(null, "", window.location.pathname);
+          if (recovery || tokenHash || code)
+            window.history.replaceState(null, "", window.location.pathname);
         })
         .catch(() => {
           if (active) setState("invalida");

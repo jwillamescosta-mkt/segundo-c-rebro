@@ -22,6 +22,7 @@ import { Route as AppInicioRouteImport } from './routes/_app/inicio'
 import { Route as AppMetasRouteImport } from './routes/_app/metas'
 import { Route as AppNotasRouteImport } from './routes/_app/notas'
 import { Route as AppPerguntarRouteImport } from './routes/_app/perguntar'
+import { Route as AppRevisarRouteImport } from './routes/_app/revisar'
 import { Route as AppTarefasRouteImport } from './routes/_app/tarefas'
 import { Route as ApiCapturarRouteImport } from './routes/api/capturar'
 import { Route as STokenRouteImport } from './routes/s.$token'
@@ -93,6 +94,11 @@ const AppPerguntarRoute = AppPerguntarRouteImport.update({
   path: '/perguntar',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRevisarRoute = AppRevisarRouteImport.update({
+  id: '/revisar',
+  path: '/revisar',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTarefasRoute = AppTarefasRouteImport.update({
   id: '/tarefas',
   path: '/tarefas',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/metas': typeof AppMetasRoute
   '/notas': typeof AppNotasRoute
   '/perguntar': typeof AppPerguntarRoute
+  '/revisar': typeof AppRevisarRoute
   '/tarefas': typeof AppTarefasRoute
   '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/metas': typeof AppMetasRoute
   '/notas': typeof AppNotasRoute
   '/perguntar': typeof AppPerguntarRoute
+  '/revisar': typeof AppRevisarRoute
   '/tarefas': typeof AppTarefasRoute
   '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/_app/metas': typeof AppMetasRoute
   '/_app/notas': typeof AppNotasRoute
   '/_app/perguntar': typeof AppPerguntarRoute
+  '/_app/revisar': typeof AppRevisarRoute
   '/_app/tarefas': typeof AppTarefasRoute
   '/api/capturar': typeof ApiCapturarRoute
   '/s/$token': typeof STokenRoute
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/notas'
     | '/perguntar'
+    | '/revisar'
     | '/tarefas'
     | '/api/capturar'
     | '/s/$token'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/notas'
     | '/perguntar'
+    | '/revisar'
     | '/tarefas'
     | '/api/capturar'
     | '/s/$token'
@@ -242,6 +253,7 @@ export interface FileRouteTypes {
     | '/_app/metas'
     | '/_app/notas'
     | '/_app/perguntar'
+    | '/_app/revisar'
     | '/_app/tarefas'
     | '/api/capturar'
     | '/s/$token'
@@ -353,6 +365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPerguntarRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/revisar': {
+      id: '/_app/revisar'
+      path: '/revisar'
+      fullPath: '/revisar'
+      preLoaderRoute: typeof AppRevisarRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/tarefas': {
       id: '/_app/tarefas'
       path: '/tarefas'
@@ -409,6 +428,7 @@ interface AppRouteChildren {
   AppMetasRoute: typeof AppMetasRoute
   AppNotasRoute: typeof AppNotasRoute
   AppPerguntarRoute: typeof AppPerguntarRoute
+  AppRevisarRoute: typeof AppRevisarRoute
   AppTarefasRoute: typeof AppTarefasRoute
   AppNotaIdRoute: typeof AppNotaIdRoute
 }
@@ -424,6 +444,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMetasRoute: AppMetasRoute,
   AppNotasRoute: AppNotasRoute,
   AppPerguntarRoute: AppPerguntarRoute,
+  AppRevisarRoute: AppRevisarRoute,
   AppTarefasRoute: AppTarefasRoute,
   AppNotaIdRoute: AppNotaIdRoute,
 }

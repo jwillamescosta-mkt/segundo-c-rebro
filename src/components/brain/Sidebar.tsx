@@ -11,6 +11,7 @@ import {
   Download,
   Hash,
   Home,
+  Inbox,
   ListTodo,
   Loader2,
   LogOut,
@@ -32,7 +33,9 @@ import { cn } from "@/lib/utils";
 import { NOTE_TYPES, safeHeadline } from "@/lib/markdown-utils";
 import { getOrCreateDaily, type NoteMeta as Note } from "@/lib/brain";
 import { exportVault } from "@/lib/export";
-import { useApp, useBrain } from "./app-context";
+import { orphanNotes, useApp, useBrain } from "./app-context";
+import { reviewCount } from "@/lib/review-utils";
+import { todayISO } from "@/lib/tasks-utils";
 import { TypeIcon } from "./type-meta";
 import { isCoreNote } from "@/lib/core-utils";
 
@@ -117,7 +120,16 @@ function NoteRow({ n, active }: { n: Note; active: boolean }) {
 
 export function Sidebar() {
   const { notes, links, tasks, events, loading } = useBrain();
-  const { setCaptureOpen, setPaletteOpen } = useApp();
+  const { setCaptureOpen, setPaletteOpen, pendingSmart } = useApp();
+  const toReview = useMemo(() => {
+    const today = todayISO();
+    return reviewCount({
+      suggested: links.filter((l) => l.status === "sugerida").length,
+      overdue: tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length,
+      orphans: orphanNotes(notes, links).length,
+      pending: pendingSmart,
+    });
+  }, [notes, links, tasks, pendingSmart]);
   const params = useParams({ strict: false }) as { id?: string };
   const openToday = useOpenToday();
   const theme = useTheme();
@@ -149,6 +161,7 @@ export function Sidebar() {
   const nav = [
     { to: "/inicio" as const, label: "Início", icon: Home },
     { to: "/entrevista" as const, label: "Montar meu cérebro", icon: Sparkles },
+    { to: "/revisar" as const, label: "Revisar", icon: Inbox, badge: toReview },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
     { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },
     { to: "/estudar" as const, label: "Estudar", icon: GraduationCap },
@@ -213,6 +226,9 @@ export function Sidebar() {
             activeProps={{ className: "bg-secondary text-foreground" }}
           >
             <i.icon className="size-3.5" strokeWidth={1.75} /> {i.label}
+            {"badge" in i && !!i.badge && (
+              <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[10px] font-medium tabular-nums text-primary">{i.badge > 99 ? "99+" : i.badge}</span>
+            )}
           </Link>
         ))}
       </nav>

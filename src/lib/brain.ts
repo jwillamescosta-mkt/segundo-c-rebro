@@ -295,3 +295,20 @@ export const LIMITS = {
   arquivo: 20 * 1024 * 1024,
   imagem: 10 * 1024 * 1024,
 };
+
+/** Aceita ou rejeita várias ligações de uma vez (revisão). */
+export async function setLinksStatus(ids: string[], status: "aceita" | "rejeitada") {
+  for (let i = 0; i < ids.length; i += 200) {
+    const { error } = await supabase.from("links").update({ status }).in("id", ids.slice(i, i + 200));
+    if (error) throw error;
+  }
+}
+
+/** Reagenda várias tarefas (null = sem data). */
+export async function rescheduleTasks(ids: string[], due_date: string | null) {
+  for (let i = 0; i < ids.length; i += 200) {
+    const patch = due_date ? { due_date } : { due_date: null, due_time: null };
+    const { error } = await supabase.from("tasks").update(patch).in("id", ids.slice(i, i + 200));
+    if (error) throw error;
+  }
+}

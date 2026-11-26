@@ -10,6 +10,7 @@ import { useApp, useBrain } from "@/components/brain/app-context";
 import { Markdown } from "@/components/brain/Markdown";
 import { useDraftSync } from "@/hooks/use-draft-sync";
 import { GenerateCardsButton } from "@/components/brain/GenerateCardsButton";
+import { ExpressButton } from "@/components/brain/ExpressButton";
 import { TypeIcon } from "@/components/brain/type-meta";
 import { typeLabel } from "@/lib/markdown-utils";
 import { CORE_TAG, isCoreNote } from "@/lib/core-utils";
@@ -106,6 +107,7 @@ function NoteEditor({ note }: { note: Note }) {
           >
             <Sparkles className="size-3.5" />
           </button>
+          {note.status === "pronta" && <ExpressButton noteId={note.id} />}
           <GenerateCardsButton noteId={note.id} />
           <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" disabled={note.status === "processando"} onClick={() => runProcess(note.id, "reanalyze")}><RefreshCw className="size-3" /> Reanalisar com IA</Button>
           <button title="Excluir" onClick={async () => { if (!confirm("Excluir esta nota?")) return; await deleteNote(note); qc.invalidateQueries({ queryKey: ["notes"] }); navigate({ to: "/inicio" }); }} className="rounded p-1 hover:bg-secondary hover:text-destructive"><Trash2 className="size-3.5" /></button>

@@ -3,21 +3,27 @@ import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { CalendarCheck, Loader2, Sun } from "lucide-react";
+import { CalendarCheck, Loader2, Moon, Sparkles, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { briefingFn } from "@/lib/briefing.functions";
+import { runRoutineFn } from "@/lib/routines.functions";
 
 /** Gera o briefing do dia (no diário) ou a revisão da semana, e abre a nota. */
 export function BriefingButtons() {
   const run = useServerFn(briefingFn);
+  const routine = useServerFn(runRoutineFn);
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [busy, setBusy] = useState<"diario" | "semanal" | null>(null);
+  type Kind = "diario" | "semanal" | "fim-do-dia" | "faxina";
+  const [busy, setBusy] = useState<Kind | null>(null);
 
-  async function go(kind: "diario" | "semanal") {
+  async function go(kind: Kind) {
     setBusy(kind);
     try {
-      const r = await run({ data: { kind } });
+      const r =
+        kind === "diario" || kind === "semanal"
+          ? await run({ data: { kind } })
+          : await routine({ data: { routine: kind } });
       if (!r.ok) {
         toast.error(r.error);
         return;
@@ -34,8 +40,30 @@ export function BriefingButtons() {
   }
 
   const items = [
-    { kind: "diario" as const, icon: Sun, title: "Briefing do dia", desc: "Prioridades, agenda, o que estudar e um insight" },
-    { kind: "semanal" as const, icon: CalendarCheck, title: "Revisão da semana", desc: "O que avançou, aprendeu e o foco da próxima" },
+    {
+      kind: "diario" as const,
+      icon: Sun,
+      title: "Briefing do dia",
+      desc: "Prioridades, agenda, o que estudar e um insight",
+    },
+    {
+      kind: "semanal" as const,
+      icon: CalendarCheck,
+      title: "Revisão da semana",
+      desc: "O que avançou, aprendeu e o foco da próxima",
+    },
+    {
+      kind: "fim-do-dia" as const,
+      icon: Moon,
+      title: "Fechar o dia",
+      desc: "Processa a fila, conecta e resume o dia no diário",
+    },
+    {
+      kind: "faxina" as const,
+      icon: Sparkles,
+      title: "Faxina do cérebro",
+      desc: "Duplicadas, erros, índices velhos e núcleo",
+    },
   ];
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -49,10 +77,16 @@ export function BriefingButtons() {
           className="group flex items-start gap-3 rounded-lg border bg-panel p-3 text-left transition-colors hover:border-primary disabled:opacity-60"
         >
           <span className="mt-0.5 rounded-md bg-primary/10 p-1.5 text-primary transition-transform group-hover:rotate-12">
-            {busy === it.kind ? <Loader2 className="size-4 animate-spin" /> : <it.icon className="size-4" />}
+            {busy === it.kind ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <it.icon className="size-4" />
+            )}
           </span>
           <span>
-            <span className="block text-sm font-medium">{busy === it.kind ? "Preparando…" : it.title}</span>
+            <span className="block text-sm font-medium">
+              {busy === it.kind ? "Preparando…" : it.title}
+            </span>
             <span className="block text-xs text-muted-foreground">{it.desc}</span>
           </span>
         </motion.button>

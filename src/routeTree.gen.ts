@@ -31,6 +31,7 @@ import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as AppNotaIdRouteImport } from './routes/_app/nota.$id'
 import { Route as ApiAgendaTokenRouteImport } from './routes/api/agenda.$token'
 import { Route as ApiMcpTokenRouteImport } from './routes/api/mcp.$token'
+import { Route as ApiRotinaTipoRouteImport } from './routes/api/rotina.$tipo'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -141,6 +142,11 @@ const ApiMcpTokenRoute = ApiMcpTokenRouteImport.update({
   path: '/api/mcp/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRotinaTipoRoute = ApiRotinaTipoRouteImport.update({
+  id: '/api/rotina/$tipo',
+  path: '/api/rotina/$tipo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -164,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/nota/$id': typeof AppNotaIdRoute
   '/api/agenda/$token': typeof ApiAgendaTokenRoute
   '/api/mcp/$token': typeof ApiMcpTokenRoute
+  '/api/rotina/$tipo': typeof ApiRotinaTipoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/nota/$id': typeof AppNotaIdRoute
   '/api/agenda/$token': typeof ApiAgendaTokenRoute
   '/api/mcp/$token': typeof ApiMcpTokenRoute
+  '/api/rotina/$tipo': typeof ApiRotinaTipoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/_app/nota/$id': typeof AppNotaIdRoute
   '/api/agenda/$token': typeof ApiAgendaTokenRoute
   '/api/mcp/$token': typeof ApiMcpTokenRoute
+  '/api/rotina/$tipo': typeof ApiRotinaTipoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/nota/$id'
     | '/api/agenda/$token'
     | '/api/mcp/$token'
+    | '/api/rotina/$tipo'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/nota/$id'
     | '/api/agenda/$token'
     | '/api/mcp/$token'
+    | '/api/rotina/$tipo'
   id:
     | '__root__'
     | '/'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/_app/nota/$id'
     | '/api/agenda/$token'
     | '/api/mcp/$token'
+    | '/api/rotina/$tipo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -295,6 +307,7 @@ export interface RootRouteChildren {
   STokenRoute: typeof STokenRoute
   ApiAgendaTokenRoute: typeof ApiAgendaTokenRoute
   ApiMcpTokenRoute: typeof ApiMcpTokenRoute
+  ApiRotinaTipoRoute: typeof ApiRotinaTipoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -453,6 +466,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMcpTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/rotina/$tipo': {
+      id: '/api/rotina/$tipo'
+      path: '/api/rotina/$tipo'
+      fullPath: '/api/rotina/$tipo'
+      preLoaderRoute: typeof ApiRotinaTipoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -501,6 +521,7 @@ const rootRouteChildren: RootRouteChildren = {
   STokenRoute: STokenRoute,
   ApiAgendaTokenRoute: ApiAgendaTokenRoute,
   ApiMcpTokenRoute: ApiMcpTokenRoute,
+  ApiRotinaTipoRoute: ApiRotinaTipoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

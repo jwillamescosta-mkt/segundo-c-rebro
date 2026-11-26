@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as EntrarRouteImport } from './routes/entrar'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppAtalhosRouteImport } from './routes/_app/atalhos'
 import { Route as AppCompartilhadasRouteImport } from './routes/_app/compartilhadas'
@@ -43,6 +44,11 @@ const AppRoute = AppRouteImport.update({
 const EntrarRoute = EntrarRouteImport.update({
   id: '/entrar',
   path: '/entrar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAgendaRoute = AppAgendaRouteImport.update({
@@ -139,6 +145,7 @@ const ApiMcpTokenRoute = ApiMcpTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/agenda': typeof AppAgendaRoute
   '/atalhos': typeof AppAtalhosRoute
   '/compartilhadas': typeof AppCompartilhadasRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/entrar': typeof EntrarRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/agenda': typeof AppAgendaRoute
   '/atalhos': typeof AppAtalhosRoute
   '/compartilhadas': typeof AppCompartilhadasRoute
@@ -185,6 +193,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/entrar': typeof EntrarRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_app/agenda': typeof AppAgendaRoute
   '/_app/atalhos': typeof AppAtalhosRoute
   '/_app/compartilhadas': typeof AppCompartilhadasRoute
@@ -209,6 +218,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/entrar'
+    | '/reset-password'
     | '/agenda'
     | '/atalhos'
     | '/compartilhadas'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/entrar'
+    | '/reset-password'
     | '/agenda'
     | '/atalhos'
     | '/compartilhadas'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/entrar'
+    | '/reset-password'
     | '/_app/agenda'
     | '/_app/atalhos'
     | '/_app/compartilhadas'
@@ -278,6 +290,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   EntrarRoute: typeof EntrarRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiCapturarRoute: typeof ApiCapturarRoute
   STokenRoute: typeof STokenRoute
   ApiAgendaTokenRoute: typeof ApiAgendaTokenRoute
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: '/entrar'
       fullPath: '/entrar'
       preLoaderRoute: typeof EntrarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/agenda': {
@@ -476,6 +496,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   EntrarRoute: EntrarRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ApiCapturarRoute: ApiCapturarRoute,
   STokenRoute: STokenRoute,
   ApiAgendaTokenRoute: ApiAgendaTokenRoute,

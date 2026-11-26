@@ -4,13 +4,12 @@ import { askTerms } from "./ask-utils";
 import { normalizeTitle } from "./markdown-utils";
 import {
   AUTO_ENTITY_CONFIDENCE,
-  PROFILE_TITLE,
   SPLIT_KEY,
   buildChildContent,
   cleanRefs,
   cleanTopics,
-  profileForPrompt,
 } from "./split-utils";
+import { coreContext } from "./core-context.server";
 import { syncWikilinks } from "./wikilink-sync";
 
 type DB = SupabaseClient<Database>;
@@ -28,8 +27,8 @@ async function entityNotes(db: DB): Promise<EntityNote[]> {
 
 /** Primeira passada: o que o app já sabe (perfil, pessoas/projetos e notas parecidas) para a IA entender o contexto. */
 export async function gatherContext(db: DB, noteId: string | null, text: string) {
-  const [{ data: profile }, entities, { data: rules }] = await Promise.all([
-    db.from("notes").select("content").eq("title", PROFILE_TITLE).maybeSingle(),
+  const [core, entities, { data: rules }] = await Promise.all([
+    coreContext(db),
     entityNotes(db),
     // Notas em que o próprio usuário explica à IA como organizar (ex.: "Diretrizes de Vinculação: ...").
     (noteId ? db.from("notes").select("title,content").ilike("title", "diretriz%").neq("id", noteId) : db.from("notes").select("title,content").ilike("title", "diretriz%")).limit(5),
@@ -39,10 +38,9 @@ export async function gatherContext(db: DB, noteId: string | null, text: string)
   const relatedIds = (hits ?? []).map((h) => h.id).filter((id) => id !== noteId).slice(0, 12);
   const { data: related } = relatedIds.length ? await db.from("notes").select("title,summary").in("id", relatedIds) : { data: [] };
 
-  const profileText = profileForPrompt(profile?.content ?? "");
   const known = new Set(entities.map((e) => normalizeTitle(e.title)));
   const prompt = [
-    profileText ? `PERFIL DO USUÁRIO (quem ele é, família, trabalho e rotina):\n${profileText}` : "",
+    core ? `CONTEXTO ESSENCIAL DO USUÁRIO (perfil e notas-núcleo: quem ele é, família, trabalho, estratégia e rotina):\n${core}` : "",
     rules?.length
       ? `DIRETRIZES QUE O USUÁRIO ESCREVEU PARA ORGANIZAR AS NOTAS (siga-as):\n${rules.map((r) => `## ${r.title}\n${(r.content ?? "").slice(0, 1500)}`).join("\n\n")}`
       : "",

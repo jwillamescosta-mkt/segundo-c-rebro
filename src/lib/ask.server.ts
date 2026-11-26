@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { chatText, todayContext } from "./pipeline.server";
 import { askTerms } from "./ask-utils";
 import { goalsContext } from "./goals.server";
+import { coreContext } from "./core-context.server";
 import { addDaysISO, formatDateBR, localDate, localTime } from "./tasks-utils";
 
 type DB = SupabaseClient<Database>;
@@ -65,7 +66,9 @@ export async function askBrain(db: DB, question: string, history: AskTurn[]) {
       "Se as notas não bastarem, diga isso claramente e, se ajudar, complete com conhecimento geral marcando o trecho com '(conhecimento geral)'. " +
       "Quando fizer sentido, termine com 1 a 3 próximos passos práticos ou conexões entre notas que o usuário ainda não fez.";
 
+    const core = await coreContext(db);
     const user =
+      (core ? `CONTEXTO ESSENCIAL (quem é o usuário, estratégia, clientes, oferta, tom de voz; use para personalizar a resposta):\n${core}\n\n` : "") +
       `NOTAS RELEVANTES:\n\n${context || "(nenhuma nota encontrada)"}\n\n` +
       `AGENDA (próximos 14 dias e atrasadas):\n${agenda || "(nada marcado)"}\n\n` +
       `METAS ATIVAS:\n${await goalsContext(db)}\n\n` +

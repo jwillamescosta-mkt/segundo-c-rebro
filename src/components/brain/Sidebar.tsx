@@ -22,6 +22,7 @@ import {
   Share2,
   Sun,
   AlertCircle,
+  Sparkles,
   X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,6 +34,7 @@ import { getOrCreateDaily, type NoteMeta as Note } from "@/lib/brain";
 import { exportVault } from "@/lib/export";
 import { useApp, useBrain } from "./app-context";
 import { TypeIcon } from "./type-meta";
+import { isCoreNote } from "@/lib/core-utils";
 
 interface SearchHit {
   id: string;
@@ -146,6 +148,7 @@ export function Sidebar() {
 
   const nav = [
     { to: "/inicio" as const, label: "Início", icon: Home },
+    { to: "/entrevista" as const, label: "Montar meu cérebro", icon: Sparkles },
     { to: "/grafo" as const, label: "Grafo", icon: Network },
     { to: "/perguntar" as const, label: "Perguntar", icon: BrainCircuit },
     { to: "/estudar" as const, label: "Estudar", icon: GraduationCap },
@@ -251,6 +254,19 @@ export function Sidebar() {
                 <Hash className="size-3" />
                 {tag} <X className="size-3" />
               </button>
+            )}
+            {!tag && notes.some(isCoreNote) && (
+              <div className="mb-2">
+                <p className="flex items-center gap-1 px-2 pb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <Sparkles className="size-3 text-primary" /> Núcleo
+                </p>
+                {notes
+                  .filter(isCoreNote)
+                  .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"))
+                  .map((n) => (
+                    <NoteRow key={n.id} n={n} active={params.id === n.id} />
+                  ))}
+              </div>
             )}
             {groups.length === 0 && <p className="px-2 text-xs text-muted-foreground">Nenhuma nota ainda.</p>}
             {groups.map((g) => (

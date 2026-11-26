@@ -12,6 +12,7 @@ import { useDraftSync } from "@/hooks/use-draft-sync";
 import { GenerateCardsButton } from "@/components/brain/GenerateCardsButton";
 import { TypeIcon } from "@/components/brain/type-meta";
 import { typeLabel } from "@/lib/markdown-utils";
+import { CORE_TAG, isCoreNote } from "@/lib/core-utils";
 
 export const Route = createFileRoute("/_app/nota/$id")({
   head: () => ({ meta: [{ title: "Nota — Segundo Cérebro" }, { name: "description", content: "Nota do seu segundo cérebro." }] }),
@@ -91,12 +92,20 @@ function NoteEditor({ note }: { note: Note }) {
     <div className="mx-auto max-w-4xl p-4 md:p-8">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <TypeIcon type={note.type} /> {typeLabel(note.type)}
+        {isCoreNote(note) && <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 text-[10px] font-medium text-primary" title="Lida pela IA antes de qualquer tarefa">núcleo</span>}
         {note.status === "processando" && <span className="flex animate-pulse-soft items-center gap-1 text-primary"><Sparkles className="size-3" /> {note.progress ?? "Processando…"}</span>}
         <div className="ml-auto flex gap-1">
           {(["editar", "dividir", "ler"] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)} className={cn("rounded px-2 py-0.5 capitalize", mode === m ? "bg-secondary text-foreground" : "hover:text-foreground")}>{m}</button>
           ))}
           <button title="Fixar" onClick={() => updateNote(note.id, { pinned: !note.pinned }).then(() => { qc.invalidateQueries({ queryKey: ["notes"] }); qc.invalidateQueries({ queryKey: ["note", note.id] }); })} className={cn("rounded p-1 hover:bg-secondary", note.pinned && "text-primary")}><Pin className="size-3.5" /></button>
+          <button
+            title={note.tags.includes(CORE_TAG) ? "Tirar do núcleo" : "Pôr no núcleo (a IA lê esta nota antes de qualquer tarefa)"}
+            onClick={() => updateNote(note.id, { tags: note.tags.includes(CORE_TAG) ? note.tags.filter((t) => t !== CORE_TAG) : [...note.tags, CORE_TAG] }).then(() => { qc.invalidateQueries({ queryKey: ["notes"] }); qc.invalidateQueries({ queryKey: ["note", note.id] }); })}
+            className={cn("rounded p-1 hover:bg-secondary", note.tags.includes(CORE_TAG) && "text-primary")}
+          >
+            <Sparkles className="size-3.5" />
+          </button>
           <GenerateCardsButton noteId={note.id} />
           <Button size="sm" variant="ghost" className="h-6 gap-1 px-2 text-xs" disabled={note.status === "processando"} onClick={() => runProcess(note.id, "reanalyze")}><RefreshCw className="size-3" /> Reanalisar com IA</Button>
           <button title="Excluir" onClick={async () => { if (!confirm("Excluir esta nota?")) return; await deleteNote(note); qc.invalidateQueries({ queryKey: ["notes"] }); navigate({ to: "/inicio" }); }} className="rounded p-1 hover:bg-secondary hover:text-destructive"><Trash2 className="size-3.5" /></button>

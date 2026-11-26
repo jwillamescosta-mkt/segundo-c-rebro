@@ -17,6 +17,7 @@ import { brainPulse } from "@/lib/pulse-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { orphanNotes, useBrain } from "@/components/brain/app-context";
 import { TypeIcon } from "@/components/brain/type-meta";
+import { CORE_TAG, CORE_TOPICS } from "@/lib/core-utils";
 
 export const Route = createFileRoute("/_app/inicio")({
   head: () => ({ meta: [{ title: "Início — Segundo Cérebro" }, { name: "description", content: "Capture e reencontre ideias." }] }),
@@ -52,6 +53,7 @@ function Home() {
   const overdue =tasks.filter((t) => !t.done && t.due_date && t.due_date < today).length;
   const orphans = orphanNotes(notes, links).slice(0, 12);
   const recent = notes.slice(0, 8);
+  const coreDone = CORE_TOPICS.filter((t) => notes.some((n) => n.title === t.title && n.tags.includes(CORE_TAG))).length;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-8">
@@ -60,6 +62,15 @@ function Home() {
         <CaptureBox variant={isMobile ? "mobile" : "inline"} />
         <OutboxStatus />
       </div>
+      {notes.length > 0 && coreDone < CORE_TOPICS.length && (
+        <Link to="/entrevista" className="flex items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3 transition-colors hover:bg-primary/10">
+          <Sparkles className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Montar meu cérebro ({coreDone}/{CORE_TOPICS.length})</p>
+            <p className="text-xs text-muted-foreground">Uma entrevista falada cria as notas-núcleo que a IA lê antes de responder, resumir e organizar.</p>
+          </div>
+        </Link>
+      )}
       <Reveal>
         <div className="mb-2"><SmartPassCard /></div>
         <BriefingButtons />

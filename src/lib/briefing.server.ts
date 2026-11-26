@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { chatText, todayContext } from "./pipeline.server";
 import { syncWikilinks } from "./wikilink-sync";
 import { goalsContext } from "./goals.server";
+import { coreContext } from "./core-context.server";
 import { demoteHeadings, upsertBriefing } from "./briefing-utils";
 import { addDaysISO, formatDateBR, localDate, localTime } from "./tasks-utils";
 
@@ -35,6 +36,7 @@ export async function generateBriefing(db: DB, userId: string, kind: "diario" | 
       `COMPROMISSOS:\n${list((events.data ?? []).map((e) => `- ${e.title} — ${formatDateBR(localDate(e.starts_at))}${e.all_day ? "" : " " + localTime(e.starts_at)}`), "(nenhum)")}`,
       `NOTAS RECENTES:\n${list((recent.data ?? []).map((n) => `- [[${n.title}]] (${n.type}; ${(n.tags ?? []).join(", ")}): ${n.summary ?? ""}`), "(nenhuma)")}`,
       `METAS ATIVAS (alinhe as prioridades a elas):\n${await goalsContext(db)}`,
+      `CONTEXTO ESSENCIAL (quem é o usuário e a estratégia dele; use para priorizar, sem repetir):\n${(await coreContext(db)) || "(ainda não preenchido)"}`,
       `FLASHCARDS PARA REVISAR HOJE: ${cards.count ?? 0}`,
       `LIGAÇÕES SUGERIDAS PELA IA AGUARDANDO DECISÃO: ${pendingLinks.count ?? 0}`,
       ...(kind === "semanal"

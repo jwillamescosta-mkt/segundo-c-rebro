@@ -8,6 +8,7 @@ import { NOTE_TYPE_VALUES, extractHashtags, linkStatusForConfidence, mergeTags, 
 import { syncWikilinks } from "./wikilink-sync";
 import { cleanTime, eventStatusForConfidence, localToTimestamptz } from "./tasks-utils";
 import { SPLIT_KEY } from "./split-utils";
+import { coreContext } from "./core-context.server";
 import { withSmart } from "./smart-utils";
 
 const MODEL = "google/gemini-3.8-flash" as const;
@@ -340,12 +341,13 @@ export async function runPipeline(db: DB, userId: string, noteId: string, mode: 
     // Analysis
     await setProgress(db, noteId, "Analisando…");
     const today = todayContext();
+    const core = await coreContext(db);
     const analysis = await chatTool<Analysis>(
       `Você organiza um segundo cérebro pessoal em português do Brasil. Hoje é ${today.human} (${today.iso}). ` +
         "Analise a nota e devolva título, resumo, tipo, tags, tarefas com datas reais (calcule datas relativas como 'quinta' ou 'amanhã' a partir de hoje; use a próxima ocorrência), compromissos de agenda e entidades. " +
         "Só crie tarefas quando houver uma ação concreta a fazer. Só crie compromissos quando houver data identificável; não invente horários. " +
         "Horários estão no fuso de Brasília.",
-      `Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}${linkUnread ? "A página do link não pôde ser lida: baseie-se só no endereço e no que o usuário escreveu, sem inventar o conteúdo da página.\n" : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
+      `${core ? `CONTEXTO ESSENCIAL DO USUÁRIO (para entender quem são as pessoas, clientes e projetos citados; não copie para a nota):\n${core}\n\n` : ""}Título atual: ${note.title}\n${linkTitle ? `Título da página: ${linkTitle}\n` : ""}${linkUnread ? "A página do link não pôde ser lida: baseie-se só no endereço e no que o usuário escreveu, sem inventar o conteúdo da página.\n" : ""}\nConteúdo:\n${content.slice(0, MAX_TEXT)}`,
       "salvar_analise",
       analysisSchema,
     );
